@@ -1,0 +1,391 @@
+/**
+ * Rich Text Renderer Styles
+ *
+ * Centralized styles for rich text content rendering
+ * Import this once in your layout to avoid duplicate styles
+ */
+
+/* Base rich text container */
+.rich-text-renderer {
+  /* Typography */
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+/* Headings */
+.rich-text-renderer h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.21em;
+  letter-spacing: 0.05em;
+  margin: 1.5rem 0 1rem;
+  color: #053b9b;
+}
+
+.rich-text-renderer h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.22em;
+  letter-spacing: 0.03em;
+  margin: 1.25rem 0 0.75rem;
+  color: #053b9b;
+}
+
+.rich-text-renderer h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 1.25rem 0 0.75rem;
+  color: #053b9b;
+}
+
+.rich-text-renderer h4,
+.rich-text-renderer h5,
+.rich-text-renderer h6 {
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+  color: #053b9b;
+}
+
+/* Paragraphs */
+.rich-text-renderer p {
+  margin: 1rem 0;
+  line-height: 1.6;
+  font-size: clamp(0.875rem, 2vw, 1.125rem);
+  font-family: var(--font-poppins);
+  font-weight: 350;
+  color: #000;
+  letter-spacing: 0.01em;
+}
+
+.rich-text-renderer p:first-child {
+  margin-top: 0;
+}
+
+.rich-text-renderer p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists */
+.rich-text-renderer ul,
+.rich-text-renderer ol {
+  margin: 1rem 0;
+  padding-left: clamp(1.5rem, 4vw, 2.5rem);
+  list-style-position: outside;
+}
+
+.rich-text-renderer ul {
+  list-style-type: disc;
+}
+
+.rich-text-renderer ol {
+  list-style-type: decimal;
+}
+
+.rich-text-renderer li {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+  display: list-item;
+  padding-left: 0.5rem;
+}
+
+.rich-text-renderer li::marker {
+  color: #053b9b;
+  font-weight: 600;
+}
+
+/* Nested lists */
+.rich-text-renderer ul ul,
+.rich-text-renderer ol ul {
+  list-style-type: circle;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.rich-text-renderer ul ul ul,
+.rich-text-renderer ol ul ul {
+  list-style-type: square;
+}
+
+.rich-text-renderer ol ol,
+.rich-text-renderer ul ol {
+  list-style-type: lower-alpha;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.rich-text-renderer ol ol ol,
+.rich-text-renderer ul ol ol {
+  list-style-type: lower-roman;
+}
+
+/* List items with checkboxes (task lists) */
+.rich-text-renderer li input[type="checkbox"] {
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+.rich-text-renderer li input[type="checkbox"]:checked + span {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+/* Images */
+.rich-text-renderer img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Links */
+.rich-text-renderer a {
+  color: #2563eb;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.rich-text-renderer a:hover {
+  color: #1d4ed8;
+}
+
+/* Tables */
+.rich-text-renderer table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+}
+
+/* When wrapped in scroll container, table doesn't need its own shadow/radius */
+.rich-text-renderer .table-scroll-wrapper table {
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.rich-text-renderer td,
+.rich-text-renderer th {
+  padding: 16px;
+  text-align: left;
+  vertical-align: top;
+}
+
+/* Header row - first row in any table structure (Sanity outputs tbody without thead) */
+.rich-text-renderer table > tr:first-child td,
+.rich-text-renderer table > tr:first-child th,
+.rich-text-renderer table > thead td,
+.rich-text-renderer table > thead th,
+.rich-text-renderer table > tbody > tr:first-child td,
+.rich-text-renderer table > tbody > tr:first-child th {
+  background-color: #053b9b;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #ffffff;
+}
+
+/* Nested elements in header must also be white */
+.rich-text-renderer table > tr:first-child td *,
+.rich-text-renderer table > tr:first-child th *,
+.rich-text-renderer table > thead td *,
+.rich-text-renderer table > thead th *,
+.rich-text-renderer table > tbody > tr:first-child td *,
+.rich-text-renderer table > tbody > tr:first-child th * {
+  color: #ffffff;
+}
+
+/* Header cell right borders (white divider between header cells) */
+.rich-text-renderer table > tr:first-child td:not(:last-child),
+.rich-text-renderer table > tr:first-child th:not(:last-child),
+.rich-text-renderer table > thead td:not(:last-child),
+.rich-text-renderer table > thead th:not(:last-child),
+.rich-text-renderer table > tbody > tr:first-child td:not(:last-child),
+.rich-text-renderer table > tbody > tr:first-child th:not(:last-child) {
+  border-right: 1px solid #ffffff;
+}
+
+/* Body cells */
+.rich-text-renderer table > tr:not(:first-child) td,
+.rich-text-renderer table > tbody > tr:not(:first-child) td {
+  background-color: #ffffff;
+  color: #475569;
+}
+
+/* Body cell right borders */
+.rich-text-renderer table > tr:not(:first-child) td:not(:last-child),
+.rich-text-renderer table > tbody > tr:not(:first-child) td:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Body cell bottom borders (not on last row) */
+.rich-text-renderer table > tr:not(:first-child):not(:last-child) td,
+.rich-text-renderer table > tbody > tr:not(:first-child):not(:last-child) td {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Body row hover effect */
+.rich-text-renderer table > tr:not(:first-child):hover td,
+.rich-text-renderer table > tbody > tr:not(:first-child):hover td {
+  background-color: #f9fafb;
+}
+
+/* Table wrapper for scrolling */
+.rich-text-renderer .table-scroll-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+  margin: 0;
+}
+
+/* Blockquotes */
+.rich-text-renderer blockquote {
+  border-left: 4px solid #053b9b;
+  padding-left: 1.5rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: #4b5563;
+}
+
+/* Code blocks */
+.rich-text-renderer pre {
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.rich-text-renderer code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875em;
+}
+
+.rich-text-renderer pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Text formatting */
+.rich-text-renderer strong,
+.rich-text-renderer b {
+  font-weight: 700;
+}
+
+.rich-text-renderer em,
+.rich-text-renderer i {
+  font-style: italic;
+}
+
+.rich-text-renderer u {
+  text-decoration: underline;
+}
+
+.rich-text-renderer s {
+  text-decoration: line-through;
+}
+
+/* Column layouts */
+.rich-text-renderer .column-layout {
+  display: grid;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.rich-text-renderer .column-left,
+.rich-text-renderer .column-right {
+  min-width: 0;
+}
+
+/* Override p styling inside columns to match global styles */
+.rich-text-renderer .column-left p,
+.rich-text-renderer .column-right p {
+  font-family: var(--font-poppins) !important;
+  font-weight: 350 !important;
+  font-size: 14px !important;
+  line-height: 1.47em !important;
+  letter-spacing: 0.01em !important;
+  color: #000 !important;
+}
+
+@media (min-width: 768px) {
+  .rich-text-renderer .column-left p,
+  .rich-text-renderer .column-right p {
+    font-size: 15px !important;
+  }
+}
+
+/* Responsive breakpoints */
+@media (min-width: 640px) {
+  .rich-text-renderer h1 {
+    font-size: 36px;
+  }
+
+  .rich-text-renderer h2 {
+    font-size: 30px;
+  }
+
+  .rich-text-renderer .column-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .rich-text-renderer h1 {
+    font-size: 43px;
+  }
+
+  .rich-text-renderer h2 {
+    font-size: 34px;
+  }
+
+  .rich-text-renderer h3 {
+    font-size: 30px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .rich-text-renderer {
+    color: black;
+  }
+
+  .rich-text-renderer a {
+    color: black;
+    text-decoration: underline;
+  }
+
+  .rich-text-renderer img {
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .rich-text-renderer table {
+    page-break-inside: avoid;
+  }
+}
+
+/* Security: prevent contenteditable styling */
+.rich-text-renderer [contenteditable] {
+  cursor: default !important;
+  user-select: text !important;
+}
+
+/* Accessibility */
+.rich-text-renderer:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

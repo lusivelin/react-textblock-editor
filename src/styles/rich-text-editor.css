@@ -1,0 +1,477 @@
+/* Text selection styles for editor */
+.rich-text-editor-content::selection,
+.rich-text-editor-content *::selection {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.rich-text-editor-content[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.dark .rich-text-editor-content[data-placeholder]:empty::before {
+  color: #4b5563;
+}
+
+.rich-text-editor-content h1,
+div.rich-text-editor-content h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem) !important;
+  line-height: 1.2 !important;
+  margin: clamp(0.5em, 2vw, 0.67em) 0 !important;
+  display: block !important;
+}
+
+.rich-text-editor-content h2,
+div.rich-text-editor-content h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2rem) !important;
+  line-height: 1.3 !important;
+  margin: clamp(0.5em, 1.8vw, 0.75em) 0 !important;
+  display: block !important;
+}
+
+.rich-text-editor-content h3,
+div.rich-text-editor-content h3 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem) !important;
+  line-height: 1.4 !important;
+  margin: clamp(0.5em, 1.5vw, 0.83em) 0 !important;
+  display: block !important;
+}
+
+.rich-text-editor-content p,
+div.rich-text-editor-content p {
+  font-size: clamp(0.875rem, 2vw, 1.125rem) !important;
+  margin: clamp(0.3em, 1vw, 0.5em) 0 !important;
+  line-height: 1.6 !important;
+  display: block !important;
+}
+
+/* Div styles (for plain text without paragraph formatting) */
+.rich-text-editor-content > div,
+div.rich-text-editor-content > div {
+  font-size: clamp(0.875rem, 2vw, 1.125rem) !important;
+  margin: clamp(0.3em, 1vw, 0.5em) 0 !important;
+  line-height: 1.6 !important;
+  display: block !important;
+}
+
+/* List styles - scoped to this rich text editor only */
+.rich-text-editor-content ul,
+.rich-text-editor-content ol {
+  padding-left: 2.5rem !important;
+  margin: 1rem 0 !important;
+  list-style-position: outside !important;
+}
+
+.rich-text-editor-content ul {
+  list-style-type: disc !important;
+  list-style: disc !important;
+}
+
+.rich-text-editor-content ol {
+  list-style-type: decimal !important;
+  list-style: decimal !important;
+}
+
+.rich-text-editor-content li {
+  display: list-item !important;
+  margin: 0.25rem 0 !important;
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+.rich-text-editor-content ul ul {
+  list-style-type: circle !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.rich-text-editor-content ul ul ul {
+  list-style-type: square !important;
+}
+
+/* More specific override */
+div.rich-text-editor-content ul {
+  list-style: disc outside !important;
+}
+
+div.rich-text-editor-content ol {
+  list-style: decimal outside !important;
+}
+
+div.rich-text-editor-content li {
+  display: list-item !important;
+}
+
+/* Inline code */
+.rich-text-editor-content code {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  font-size: 0.85em;
+  background-color: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  color: inherit;
+}
+
+.dark .rich-text-editor-content code {
+  background-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.resizable-image {
+  position: relative;
+}
+
+.resizable-image:hover,
+.resizable-image.selected {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Remove default image shadows in rich text content */
+.rich-text-editor-content img,
+.rich-text-editor img,
+div.rich-text-editor-content img,
+.column-layout img,
+.column-left img,
+.column-right img {
+  box-shadow: none !important;
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-shadow-colored: 0 0 #0000 !important;
+}
+
+.resize-handle {
+  position: absolute;
+  background-color: #3b82f6;
+  border: 2px solid #ffffff;
+  border-radius: 3px;
+  width: 8px;
+  height: 8px;
+  pointer-events: all;
+  z-index: 10;
+}
+
+.resize-handle:hover {
+  background-color: #2563eb;
+  transform: scale(1.2);
+}
+
+.resize-handle-nw {
+  top: -4px;
+  left: -4px;
+  cursor: nw-resize;
+}
+
+.resize-handle-ne {
+  top: -4px;
+  right: -4px;
+  cursor: ne-resize;
+}
+
+.resize-handle-sw {
+  bottom: -4px;
+  left: -4px;
+  cursor: sw-resize;
+}
+
+.resize-handle-se {
+  bottom: -4px;
+  right: -4px;
+  cursor: se-resize;
+}
+
+.resize-handle-w {
+  top: 50%;
+  left: -4px;
+  transform: translateY(-50%);
+  cursor: w-resize;
+}
+
+.resize-handle-e {
+  top: 50%;
+  right: -4px;
+  transform: translateY(-50%);
+  cursor: e-resize;
+}
+
+.image-resize-container {
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.resizable-table {
+  cursor: pointer;
+}
+
+.resizable-table:hover,
+.resizable-table.selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.resizable-table td,
+.resizable-table th {
+  position: relative;
+}
+
+.resizable-table td:focus,
+.resizable-table th:focus {
+  outline: 1px solid #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Column Layout Styles */
+.rich-text-editor-content .column-layout {
+  cursor: pointer;
+}
+
+.rich-text-editor-content .column-layout.selected {
+  border-color: #3b82f6 !important;
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+
+.rich-text-editor-content .column-layout {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 1rem !important;
+  margin: 1rem 0 !important;
+  align-items: flex-start !important;
+  border: 2px dashed #60a5fa !important;
+  padding: 1rem !important;
+  border-radius: 0.5rem !important;
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  position: relative !important;
+}
+
+.rich-text-editor-content .column-layout::before {
+  content: "Two Columns Layout" !important;
+  position: absolute !important;
+  top: -10px !important;
+  left: 10px !important;
+  background: #1f2937 !important;
+  color: #60a5fa !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  border: 1px solid #60a5fa !important;
+}
+
+.column-left {
+  flex: 0 0 auto !important;
+  min-width: 100px !important;
+  border: 1px solid #60a5fa !important;
+  border-radius: 0.25rem !important;
+  padding: 0.5rem !important;
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.column-left::before {
+  content: "Left Column" !important;
+  display: block !important;
+  font-size: 9px !important;
+  color: #60a5fa !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.25rem !important;
+  text-transform: uppercase !important;
+}
+
+.column-right {
+  flex: 1 1 200px !important;
+  min-width: 200px !important;
+  border: 1px solid #60a5fa !important;
+  border-radius: 0.25rem !important;
+  padding: 0.5rem !important;
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.column-right::before {
+  content: "Right Column" !important;
+  display: block !important;
+  font-size: 9px !important;
+  color: #60a5fa !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.25rem !important;
+  text-transform: uppercase !important;
+}
+
+/* Override prose color in fullscreen and normal mode */
+/* But allow inline styles to override (remove !important for elements that can have custom colors) */
+.rich-text-editor-content,
+.rich-text-editor-content p,
+.rich-text-editor-content h1,
+.rich-text-editor-content h2,
+.rich-text-editor-content h3,
+.rich-text-editor-content h4,
+.rich-text-editor-content h5,
+.rich-text-editor-content h6,
+.rich-text-editor-content li,
+.rich-text-editor-content div,
+.rich-text-editor-content a {
+  color: currentColor !important;
+}
+
+/* Allow spans to have custom colors (no !important) */
+.rich-text-editor-content span,
+.rich-text-editor-content strong,
+.rich-text-editor-content em,
+.rich-text-editor-content u {
+  color: inherit;
+}
+
+/*
+ * Sanity's @sanity/ui styled-components baseline sets
+ * "strong { font-weight: 500 }" globally, which leaks into our
+ * contentEditable and makes Bold look almost identical to normal
+ * text. Re-assert real boldness here with higher specificity and
+ * !important so the editor matches the rendered output.
+ */
+.rich-text-editor-content strong,
+.rich-text-editor-content b,
+div.rich-text-editor-content strong,
+div.rich-text-editor-content b {
+  font-weight: 700 !important;
+}
+
+.rich-text-editor-content em,
+.rich-text-editor-content i,
+div.rich-text-editor-content em,
+div.rich-text-editor-content i {
+  font-style: italic !important;
+}
+
+.rich-text-editor-content u,
+div.rich-text-editor-content u {
+  text-decoration: underline !important;
+}
+
+/* Ensure the editor inherits text color from wrapper */
+.rich-text-editor .rich-text-editor-content {
+  color: inherit !important;
+}
+
+/* Ensure consistent font rendering for emojis and special characters */
+.rich-text-editor-content {
+  font-family:
+    var(--font-poppins), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji" !important;
+}
+
+/* Column Layout - ensure text inherits editor styles */
+.rich-text-editor-content .column-layout p,
+.rich-text-editor-content .column-left p,
+.rich-text-editor-content .column-right p {
+  color: inherit !important;
+  font-size: inherit !important;
+}
+
+/* Dark mode support for column text */
+.dark .rich-text-editor-content .column-layout p,
+.dark .rich-text-editor-content .column-left p,
+.dark .rich-text-editor-content .column-right p {
+  color: inherit !important;
+}
+
+/* Prevent column container divs from being directly editable */
+.rich-text-editor-content .column-layout,
+.rich-text-editor-content .column-left,
+.rich-text-editor-content .column-right {
+  outline: none !important;
+}
+
+/* Mobile responsive - stack columns on small screens */
+@media (max-width: 640px) {
+  .column-layout {
+    flex-direction: column !important;
+  }
+
+  .column-left,
+  .column-right {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+}
+
+.column-left:focus,
+.column-right:focus {
+  outline: none !important;
+}
+
+/* Paragraph styles inside columns */
+.column-left p,
+.column-right p,
+.rich-text-editor-content .column-left p,
+.rich-text-editor-content .column-right p,
+div.column-left p,
+div.column-right p {
+  font-family: var(--font-poppins) !important;
+  font-size: 14px !important;
+  line-height: 1.47em !important;
+  letter-spacing: 0.01em !important;
+  color: #000 !important;
+  margin: 0.5rem 0 !important;
+}
+
+.rich-text-renderer strong,
+.rich-text-renderer b {
+  font-weight: 700 !important;
+}
+
+@media (min-width: 768px) {
+  .column-left p,
+  .column-right p,
+  .rich-text-editor-content .column-left p,
+  .rich-text-editor-content .column-right p,
+  div.column-left p,
+  div.column-right p {
+    font-size: 15px !important;
+  }
+}
+
+/* Ensure list styles work properly inside columns */
+.column-right ul[style],
+.column-left ul[style],
+.column-right ul,
+.column-left ul,
+.rich-text-editor-content .column-right ul,
+.rich-text-editor-content .column-left ul,
+div.column-right ul,
+div.column-left ul {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  padding-left: 2.5rem !important;
+  margin: 1rem 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+}
+
+.column-right ol[style],
+.column-left ol[style],
+.column-right ol,
+.column-left ol,
+.rich-text-editor-content .column-right ol,
+.rich-text-editor-content .column-left ol,
+div.column-right ol,
+div.column-left ol {
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+  padding-left: 2.5rem !important;
+  margin: 1rem 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+}
+
+.column-right li[style],
+.column-left li[style],
+.column-right li,
+.column-left li,
+.rich-text-editor-content .column-right li,
+.rich-text-editor-content .column-left li,
+div.column-right li,
+div.column-left li {
+  display: list-item !important;
+  background: none !important;
+  background-color: transparent !important;
+}
