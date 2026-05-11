@@ -8,6 +8,7 @@ export interface StructuredEditorRenderProps {
   onChange?: (content: string) => void;
   onSave?: () => void;
   onDiscard?: () => void;
+  onImageUpload?: (file: File) => Promise<string>;
   placeholder?: string;
   className?: string;
   readOnly?: boolean;

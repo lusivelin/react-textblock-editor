@@ -1,27 +1,20 @@
 # `@rave/rich-text-editor`
 
-Standalone React rich text editor package with a hostable frontend documentation site and live playground.
+ProseMirror rich text editor for React with local-first persistence.
 
-## Product contract
+## Install
 
-- The editor stores a single HTML string.
-- The renderer consumes that saved HTML string.
-- The docs site doubles as package documentation and the manual test surface.
-- New saved markup must remain compatible with the sanitization layer.
+```bash
+pnpm add @rave/rich-text-editor
+```
 
-## Repository layout
+For local-first persistence (optional):
 
-- `src/`: publishable library source
-- `src/demo/`: frontend docs website and playground
-- `src/components/`: editor shell, field wrapper, renderer
-- `src/hooks/`: draft buffering, session, selection, copy/paste, and editor behavior hooks
-- `src/utils/`: sanitization and DOM helpers
-- `docs/`: local markdown documentation for overview, hosting, publishing, and roadmap notes
-- `scripts/build-css.mjs`: distributable stylesheet build step
+```bash
+pnpm add @automerge/automerge
+```
 
-## Frontend integration
-
-Most consumers should mount `RichTextEditorField` and save the HTML string returned by `onSave`.
+## Quick start
 
 ```tsx
 import "@rave/rich-text-editor/style.css";
@@ -31,66 +24,88 @@ const [savedHtml, setSavedHtml] = useState("<p>Hello</p>");
 
 <RichTextEditorField
   value={savedHtml}
-  onSave={async (nextHtml) => {
-    await saveDocument({ body: nextHtml });
-    setSavedHtml(nextHtml);
+  onSave={async (html) => {
+    await saveDocument({ body: html });
+    setSavedHtml(html);
   }}
   documentId="article:home"
-  persistLocalDrafts
-/>;
+/>
 
-<RichTextRenderer content={savedHtml} />;
+<RichTextRenderer content={savedHtml} />
 ```
 
-Frontend seams already exposed by the package:
+## Local-first persistence
 
-- `onLocalChange`: observe draft edits before save
-- `onSessionStateChange`: inspect session metadata such as unsaved state or persistence key
-- `featureFlags`: declare enabled seams for offline, comments, tracked changes, collaboration, and AI
-- `editorMode` plus `documentModelAdapter`: mount a structured-editor prototype without replacing the current HTML storage contract
+Content survives page reload without a server. Uses `@automerge/automerge` + localStorage.
 
-## Local development
+```tsx
+<RichTextEditorField
+  value={savedHtml}
+  onSave={async (html) => { setSavedHtml(html); }}
+  documentId="article:home"
+  persistence={{ kind: "automerge", documentId: "article:home" }}
+  featureFlags={{ offline: true }}
+/>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | `string` | — | Saved HTML from your state or API |
+| `onSave` | `(html) => void \| Promise` | — | Called on explicit save |
+| `onDiscard` | `(html) => void \| Promise` | — | Called on discard |
+| `onLocalChange` | `(html) => void` | — | Called on every draft edit |
+| `onSessionStateChange` | `(state) => void` | — | Session metadata observer |
+| `documentId` | `string` | — | Stable ID for this document |
+| `persistence` | `PersistenceConfig` | `{ kind: 'none' }` | `{ kind: 'automerge', documentId }` to enable |
+| `featureFlags` | `EditorFeatureFlags` | — | `offline`, `comments`, `collaboration`, `ai` |
+| `placeholder` | `string` | `"Start writing…"` | Editor placeholder |
+| `height` | `number` | `400` | Min height in px |
+| `darkMode` | `boolean` | `false` | Dark theme |
+| `readOnly` | `boolean` | `false` | Disable editing |
+| `lazyMount` | `boolean` | `true` | Mount only on first click |
+
+## Session state
+
+```typescript
+onSessionStateChange={(state) => {
+  // state.documentId
+  // state.savedContent
+  // state.draftContent
+  // state.hasUnsavedChanges
+  // state.hasPersistedDraft
+  // state.featureFlags
+}}
+```
+
+## Sanitization
+
+```tsx
+import { sanitizeRichTextContent, isContentSafe, getSanitizationReport } from "@rave/rich-text-editor";
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Dev server at `http://localhost:4173` |
+| `pnpm typecheck` | Type check |
+| `pnpm build:lib` | Build package → `dist/` |
+| `pnpm build:docs` | Build docs site → `site-dist/` |
+| `pnpm build` | Both |
+
+## Deploy docs site
+
+```
+Build command:    pnpm build:docs
+Output directory: site-dist
+```
+
+Works on Vercel, Netlify, Cloudflare Pages.
+
+## Publish
 
 ```bash
-pnpm install
-pnpm dev
+pnpm typecheck && pnpm build:lib && pnpm publish --access public
 ```
-
-Open the Vite app to use the docs site and playground together.
-
-## Verification
-
-Run these before shipping meaningful editor changes:
-
-```bash
-pnpm typecheck
-pnpm build:lib
-pnpm build:docs
-```
-
-## Build outputs
-
-`pnpm build:lib` writes:
-
-- `dist/index.js`
-- `dist/index.cjs`
-- `dist/style.css`
-- `dist/types/*`
-
-`pnpm build:docs` writes the static docs site to `site-dist/`.
-
-## Hosting the docs site
-
-The frontend docs site is a static Vite build. Use:
-
-- Build command: `pnpm build:docs`
-- Output directory: `site-dist`
-
-This works on Vercel, Netlify, and Cloudflare Pages.
-
-## Publish flow
-
-1. Update the version in `package.json`.
-2. Run `pnpm typecheck`.
-3. Run `pnpm build:lib`.
-4. Publish from the repo root with `pnpm publish` or `npm publish`.

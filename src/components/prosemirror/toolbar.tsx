@@ -1,14 +1,17 @@
 "use client";
 
+import { useRef } from "react";
 import {
   Bold,
   Code,
+  ImagePlus,
   Italic,
   List,
   ListOrdered,
   Quote,
   Redo,
   Strikethrough,
+  Table2,
   Underline,
   Undo,
 } from "lucide-react";
@@ -25,6 +28,7 @@ interface ProseMirrorToolbarProps {
   view: EditorView | null;
   state: EditorState | null;
   darkMode: boolean;
+  onImageUpload?: (file: File) => Promise<string>;
 }
 
 function isMarkActive(state: EditorState, markType: MarkType): boolean {
@@ -51,8 +55,40 @@ function run(view: EditorView, cmd: Command) {
   view.focus();
 }
 
-export function ProseMirrorToolbar({ view, state, darkMode }: ProseMirrorToolbarProps) {
+const insertTableCmd: Command = (state, dispatch) => {
+  const { table, table_row, table_cell, table_header } = schema.nodes;
+  if (!table || !table_row || !table_cell) return false;
+  const cell = (hdr: boolean) => (hdr && table_header ? table_header : table_cell).createAndFill()!;
+  const row = (hdr: boolean) => table_row.create(null, [cell(hdr), cell(hdr), cell(hdr)]);
+  const tbl = table.create(null, [row(true), row(false), row(false)]);
+  if (dispatch) dispatch(state.tr.replaceSelectionWith(tbl).scrollIntoView());
+  return true;
+};
+
+function insertImageCmd(src: string, alt = ""): Command {
+  return (state, dispatch) => {
+    const img = schema.nodes.image.create({ src, alt });
+    if (dispatch) dispatch(state.tr.replaceSelectionWith(img).scrollIntoView());
+    return true;
+  };
+}
+
+export function ProseMirrorToolbar({ view, state, darkMode, onImageUpload }: ProseMirrorToolbarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!view || !state) return null;
+
+  const btnCls = (active: boolean) =>
+    cn(
+      "flex h-7 items-center justify-center rounded px-1.5 text-xs transition-colors",
+      darkMode
+        ? active
+          ? "bg-white/20 text-white"
+          : "text-white/60 hover:bg-white/10 hover:text-white"
+        : active
+          ? "bg-slate-200 text-slate-900"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+    );
 
   const btn = (
     label: string,
@@ -69,25 +105,14 @@ export function ProseMirrorToolbar({ view, state, darkMode }: ProseMirrorToolbar
         e.preventDefault();
         run(view, cmd);
       }}
-      className={cn(
-        "flex h-7 w-7 items-center justify-center rounded text-xs transition-colors",
-        darkMode
-          ? active
-            ? "bg-white/20 text-white"
-            : "text-white/60 hover:bg-white/10 hover:text-white"
-          : active
-            ? "bg-slate-200 text-slate-900"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-      )}
+      className={btnCls(active)}
     >
       {icon}
     </button>
   );
 
   const sep = () => (
-    <span
-      className={cn("mx-0.5 h-5 w-px shrink-0", darkMode ? "bg-white/10" : "bg-slate-200")}
-    />
+    <span className={cn("mx-0.5 h-5 w-px shrink-0", darkMode ? "bg-white/10" : "bg-slate-200")} />
   );
 
   const headingBtn = (level: number) =>
@@ -98,6 +123,21 @@ export function ProseMirrorToolbar({ view, state, darkMode }: ProseMirrorToolbar
       isBlockActive(state, schema.nodes.heading, { level }),
       `Heading ${level}`
     );
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    let src: string;
+    try {
+      src = onImageUpload ? await onImageUpload(file) : URL.createObjectURL(file);
+    } catch {
+      return;
+    }
+
+    run(view, insertImageCmd(src, file.name));
+  };
 
   return (
     <div
@@ -123,6 +163,30 @@ export function ProseMirrorToolbar({ view, state, darkMode }: ProseMirrorToolbar
       {btn("Bullet list", <List size={14} />, wrapInList(schema.nodes.bullet_list), isListActive(state, schema.nodes.bullet_list), "Bullet List")}
       {btn("Ordered list", <ListOrdered size={14} />, wrapInList(schema.nodes.ordered_list), isListActive(state, schema.nodes.ordered_list), "Ordered List")}
       {btn("Blockquote", <Quote size={14} />, wrapIn(schema.nodes.blockquote), isBlockActive(state, schema.nodes.blockquote), "Blockquote")}
+      {sep()}
+
+      {/* Image upload */}
+      <button
+        type="button"
+        title="Insert image"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          fileInputRef.current?.click();
+        }}
+        className={btnCls(false)}
+      >
+        <ImagePlus size={14} />
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleImageSelect}
+      />
+
+      {/* Insert table */}
+      {btn("Insert table", <Table2 size={14} />, insertTableCmd, false, "Insert 3×3 table")}
     </div>
   );
 }

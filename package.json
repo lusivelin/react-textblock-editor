@@ -26,7 +26,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "@automerge/automerge": {
+      "optional": true
+    }
+  },
   "dependencies": {
+    "@automerge/automerge": "^3.2.6",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.15",
@@ -59,7 +65,8 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vite": "^8.0.11"
+    "vite": "^8.0.11",
+    "vite-plugin-wasm": "^3.6.0"
   },
   "scripts": {
     "dev": "vite",

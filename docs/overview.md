@@ -1,53 +1,52 @@
 # Overview
 
-This repository isolates the editor from the original application so it can be:
+ProseMirror rich text editor package. Stores and outputs a sanitized HTML string. Local-first persistence via Automerge + localStorage.
 
-- tested from a simple homepage
-- versioned independently
-- published to npm
-- consumed by any React application
+## What's in the package
 
-The library exports the editor field, raw editor, renderer, sanitization helpers, and low-level editor utilities.
+- `RichTextEditorField` — full editing surface with draft buffering, save/discard, Automerge persistence
+- `RichTextRenderer` — read-only renderer, sanitizes on render
+- `sanitizeRichTextContent` — DOMPurify wrapper for manual use
+- `useDocumentSession` — low-level draft state hook
+- `createProseMirrorAdapter` — adapter factory for the structured-editor seam
 
-## Frontend contract
+## Integration
 
-The package is intentionally opinionated about the baseline document flow:
+```tsx
+import "@rave/rich-text-editor/style.css";
+import { RichTextEditorField, RichTextRenderer } from "@rave/rich-text-editor";
 
-- edit locally in React
-- save one sanitized HTML string
-- render that same saved value on reader surfaces
+<RichTextEditorField
+  value={savedHtml}
+  onSave={async (html) => { setSavedHtml(html); }}
+  documentId="article:home"
+/>
 
-Most consumers should start with `RichTextEditorField`, not the lower-level editor shell. The field wrapper handles:
+<RichTextRenderer content={savedHtml} />
+```
 
-- local draft buffering
-- explicit save and discard boundaries
-- optional persisted browser drafts
-- session metadata for frontend state inspection
+## Available seams
 
-`RichTextRenderer` is the read-side companion. It accepts the saved HTML string, sanitizes it again defensively, and removes editor-only DOM artifacts before rendering.
+```typescript
+// Observe every draft keystroke
+onLocalChange={(html) => console.log(html)}
 
-## Frontend seams already available
+// Observe session metadata (unsaved changes, draft state, flags)
+onSessionStateChange={(state) => console.log(state)}
 
-The current package already exposes boundaries for larger editor capabilities without changing the core storage contract:
+// Local-first persistence — survives reload
+persistence={{ kind: 'automerge', documentId: 'article:home' }}
 
-- `featureFlags` for offline, comments, tracked changes, collaboration, and AI
-- `onSessionStateChange` for observing document session state outside the editor DOM
-- `editorMode="structured"` plus `documentModelAdapter` for docs-only or experimental structured editor mounting
+// Feature flags — signal which capabilities are active
+featureFlags={{ offline: true, comments: true, collaboration: true, ai: true }}
+```
 
-These are seams, not promises that the full capability is implemented end-to-end yet. The current production contract remains a single saved HTML string.
+## Use cases
 
-## Use Cases
+| Tier | What it needs |
+|------|--------------|
+| Simple | Single-user editing, save/discard, local draft persistence |
+| Medium | Collaboration, comments, slash commands, drag-and-drop blocks |
+| Complex | Real-time sync, offline replay, track changes, DOCX export, AI, RAG |
 
-This repository can support three broad editor tiers, depending on how far the package evolves.
-
-### A simple editor
-
-A traditional WYSIWYG single-user rich text editor with a basic command bar at the top, various standard elements like text, lists, tables, and images for basic content creation. No version history, AI, or multi-user features, just a JavaScript package to install into frontend source code.
-
-### A medium editor
-
-An advanced content editor with a modern editing UI, including slash command menus, drag-and-drop content blocks, real-time collaboration, commenting, and webhooks and APIs for further processing of editor content outside the editor.
-
-### A complex editor
-
-A sophisticated editor interface similar to Google Docs or Notion, with real-time collaboration, offline support, role-based commenting, granular track changes, redlining, import and export of file formats like MS Word or Markdown, AI operations on editor content, and Retrieval-Augmented Generation (RAG) capabilities across all editor documents in the database.
+See `.agents/SKILL.md` for medium and complex tier architecture guidance.

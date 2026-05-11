@@ -1,13 +1,18 @@
 import { createElement } from "react";
 import type { EditorView } from "prosemirror-view";
-import type { DocumentModelAdapter } from "../../core/document-model";
+import type { DocumentModelAdapter, StructuredEditorRenderProps } from "../../core/document-model";
 import { StructuredEditor } from "./structured-editor";
+
+export type PersistenceConfig =
+  | { kind: "none" }
+  | { kind: "automerge"; documentId: string };
 
 export interface ProseMirrorAdapterOptions {
   id?: string;
   label?: string;
   description?: string;
-  /** Called once the EditorView is ready — hook point for future Automerge binding. */
+  persistence?: PersistenceConfig;
+  /** Called once the EditorView is ready. */
   onEditorReady?: (view: EditorView) => void;
 }
 
@@ -15,7 +20,7 @@ export function createProseMirrorAdapter(options: ProseMirrorAdapterOptions = {}
   const {
     id = "prosemirror-adapter",
     label = "ProseMirror editor",
-    description = "Raw ProseMirror editor backed by prosemirror-state/view/model.",
+    description = "Raw ProseMirror editor — prosemirror-state/view/model.",
   } = options;
 
   return {
@@ -23,6 +28,6 @@ export function createProseMirrorAdapter(options: ProseMirrorAdapterOptions = {}
     mode: "structured",
     label,
     description,
-    render: (props) => createElement(StructuredEditor, props),
+    render: (props: StructuredEditorRenderProps) => createElement(StructuredEditor, props),
   };
 }

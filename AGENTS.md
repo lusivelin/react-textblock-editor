@@ -1,36 +1,75 @@
-# Rave Rich Text Editor Agent Guide
+# Rave Rich Text Editor — Agent Guide
 
-## Scope
+ProseMirror-based structured document editor. Output is a sanitized HTML string. Local-first persistence via `@automerge/automerge` + localStorage.
 
-This repository is the standalone home for the custom rich text editor.
+## Repository layout
 
-Primary areas:
-
-- `src/components/*`: editor shell, field wrapper, renderer
-- `src/hooks/*`: editor behavior and renderer cleanup hooks
-- `src/utils/*`: sanitization and DOM helpers
-- `src/demo/*`: sidebar-based docs website and live playground
-- `vite.lib.config.ts`: package build configuration
-- `scripts/build-css.mjs`: distributable CSS build step
-
-## Product contract
-
-- The editor stores a single HTML string.
-- The renderer consumes that saved HTML string.
-- The docs website is both the documentation surface and the manual test surface for package development.
-- Library code should remain framework-light and avoid app-specific dependencies.
+```
+src/
+  components/
+    rich-text-editor-field.tsx     # Main consumer entry point
+    rich-text-renderer.tsx         # Read-only renderer
+    action-bar.tsx                 # Save/discard UI
+    prosemirror/
+      schema.ts                    # ProseMirror schema
+      structured-editor.tsx        # EditorView lifecycle
+      toolbar.tsx                  # Formatting toolbar
+      pm-styles.ts                 # Injected CSS
+      adapter.ts                   # createProseMirrorAdapter, PersistenceConfig
+      automerge/
+        automerge-persistence.ts   # loadHtml / saveHtml via Automerge + localStorage
+  hooks/
+    use-document-session.ts        # Draft state and session metadata
+    use-buffered-rich-text.ts
+    use-sanitized-content.ts
+    use-rich-text-styling.ts
+  core/
+    document-session.ts            # DocumentSessionState type
+    document-model.ts              # DocumentModelAdapter, EditorMode types
+    editor-features.ts             # EditorFeatureFlags type
+  utils/
+    sanitize-rich-text.ts          # DOMPurify wrapper — gates all HTML in/out
+    html/
+      html-to-prosemirror.ts       # parseHtmlToDoc
+      prosemirror-to-html.ts       # serializeDocToHtml
+  demo/
+    app.tsx                        # Docs site + playground
+.agents/
+  SKILL.md                         # Complex editor architect skill
+  REFERENCE.md                     # Architecture patterns and phased rollout
+docs/
+  overview.md
+  complex-editor-implementation-plan.md
+  automerge-local-first-migration-plan.md
+  hosting.md
+  publishing.md
+```
 
 ## Working rules
 
-- Keep Sanity-specific code out of this repo.
-- Prefer changes through existing hooks before enlarging `rich-text-editor.tsx`.
-- Preserve caret stability and avoid unnecessary `innerHTML` resets.
-- Keep the docs website clear and hostable; it should explain install, usage, hosting, and expose a live editor playground.
-- Any new saved markup must be validated against sanitization rules.
+- Editor is ProseMirror only — no contentEditable, no Tiptap.
+- Keep `StructuredEditor` focused on EditorView lifecycle. Add capabilities as PM plugins.
+- Never destroy and recreate EditorView on prop changes — caret stability.
+- All HTML leaving the editor must pass through `sanitizeRichTextContent`.
+- `prosemirror-history` handles undo/redo. Don't mix with `yUndoPlugin`.
+
+## API quick reference
+
+```tsx
+import "@rave/rich-text-editor/style.css";
+import { RichTextEditorField, RichTextRenderer } from "@rave/rich-text-editor";
+
+<RichTextEditorField
+  value={savedHtml}
+  onSave={async (html) => { setSavedHtml(html); }}
+  documentId="article:home"
+  persistence={{ kind: "automerge", documentId: "article:home" }}
+  featureFlags={{ offline: true }}
+/>
+<RichTextRenderer content={savedHtml} />
+```
 
 ## Verification
-
-Run these before finishing meaningful editor changes:
 
 ```bash
 pnpm typecheck
@@ -38,4 +77,6 @@ pnpm build:lib
 pnpm build:docs
 ```
 
-If you add tests later, document the test command here.
+## Complex editor patterns
+
+See `.agents/SKILL.md` — covers collaboration, comments, track changes, AI, RAG.
