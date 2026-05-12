@@ -2,24 +2,52 @@
 
 ## Status: implemented
 
-Single-user local-first persistence is live via `@automerge/automerge` + localStorage.
+Single-user local-first persistence is live via `@automerge/automerge` with pluggable browser storage.
 
 ## How it works
 
-- Storage key: `rave-rte:am:<documentId>` in localStorage
-- Format: Automerge binary (base64-encoded), wrapping `{ html: string }`
-- On mount: stored version loads and overrides `value` prop
-- On every keystroke: saves to localStorage via `amSave`
-- On page reload: restores last content without a server round-trip
+- Default backend: `IndexedDB`
+- Optional simple backend: `localStorage`
+- Format: Automerge document wrapping `{ html: string }`
+- Entry point: `createLocalFirstExtension({ documentId })`
+- On initial load: the extension can hydrate editor content from browser-local storage
+- On local edits: the extension writes the latest HTML back into Automerge/localStorage
+- On page reload: the editor can restore the last local content without a server round-trip
+- On explicit save: your application still decides what becomes canonical server-saved HTML
 
 ## Enable
 
 ```tsx
 <RichTextEditorField
-  persistence={{ kind: "automerge", documentId: "article:home" }}
-  featureFlags={{ offline: true }}
+  documentId="article:home"
+  extensions={[
+    createLocalFirstExtension({ documentId: "article:home" }),
+  ]}
 />
 ```
+
+To force the simple `localStorage` backend:
+
+```tsx
+const extension = createLocalFirstExtension({
+  documentId: "article:home",
+  storage: createLocalStorageLocalFirstStorage(),
+});
+```
+
+## Mental model
+
+- `value` is your app-controlled saved HTML
+- local-first is a resilience layer around the active editing session
+- the local-first backend is browser-local only in the current implementation
+- this is not multi-user sync and not server replication
+
+The goal is:
+
+1. keep editing responsive
+2. survive reloads
+3. reduce accidental data loss
+4. still let the host app own the save API contract
 
 ## Extending to multi-user sync
 
@@ -32,6 +60,6 @@ The PM editor does not need to change — Automerge Repo manages the document.
 
 ## Limits
 
-- localStorage cap: ~5–10 MB per origin. Switch to IndexedDB adapter for large documents.
+- `localStorage` cap is still small if you choose that adapter. Prefer the default `IndexedDB` backend for real local-first usage.
 - No cross-tab sync in the current implementation.
 - No server sync out of the box.

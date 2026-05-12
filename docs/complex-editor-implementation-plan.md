@@ -42,4 +42,4 @@ The editor does not need to change. The provider manages the shared document sta
 
 ## Architecture reference
 
-See `.agents/REFERENCE.md` for data models, API contracts, and capability design notes.
+See `.agents/SKILL.md` for the current extension-oriented capability guidance.

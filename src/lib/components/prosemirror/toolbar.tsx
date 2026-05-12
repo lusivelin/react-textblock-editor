@@ -1,0 +1,817 @@
+import { forwardRef, useEffect, useRef, useState } from "react";
+import type React from "react";
+import {
+  ChevronDown,
+  Highlighter,
+  List,
+  ListOrdered,
+  Palette,
+  Table2,
+  X,
+} from "lucide-react";
+import { liftListItem, wrapInList } from "prosemirror-schema-list";
+import type { Command, EditorState } from "prosemirror-state";
+import type { MarkType, NodeType, Schema } from "prosemirror-model";
+import type { EditorView } from "prosemirror-view";
+import { cn } from "../../utils/cn";
+import type { EditorToolbarItem, EditorToolbarItemProps } from "../../core/editor-extension";
+
+const TOOLBAR_GROUP_ORDER = ["history", "inline", "block", "insert", "view"];
+const PRESET_COLORS = [
+  "#b2f2bb", "#fff3bf", "#ffc9c9", "#d0bfff", "#a5d8ff",
+  "#40c057", "#fab005", "#fa5252", "#7950f2", "#228be6",
+  "#2f9e44", "#f08c00", "#e03131", "#6741d9", "#1971c2",
+  "#1e7e34", "#d9480f", "#c92a2a", "#5f3dc4", "#1864ab",
+  "#dee2e6", "#adb5bd", "#868e96", "#495057", "#212529",
+];
+const GRID_ROWS = 8;
+const GRID_COLS = 8;
+const BULLET_STYLES = ["disc", "circle", "square"] as const;
+const ORDERED_STYLES = ["decimal", "lower-alpha", "lower-greek", "lower-roman", "upper-alpha", "upper-roman"] as const;
+const CP_W = 280;
+const CP_H = 220;
+const HUE_W = 16;
+const HUE_H = 220;
+
+interface HsvState {
+  h: number;
+  s: number;
+  v: number;
+}
+
+export interface ProseMirrorToolbarProps extends EditorToolbarItemProps {
+  items: EditorToolbarItem[];
+  className?: string;
+}
+
+export function runCommand(view: EditorView, command: Command) {
+  command(view.state, view.dispatch, view);
+  view.focus();
+}
+
+export function ToolbarSeparator() {
+  return <span className="loom-toolbar-sep" />;
+}
+
+export const ToolbarButton = forwardRef<HTMLButtonElement, {
+  title: string;
+  active?: boolean;
+  onMouseDown: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  children: React.ReactNode;
+  className?: string;
+}>(
+  ({ title, active = false, onMouseDown, children, className }, ref) => {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        title={title}
+        data-active={active || undefined}
+        onMouseDown={onMouseDown}
+        className={cn("loom-toolbar-btn", className)}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+
+ToolbarButton.displayName = "ToolbarButton";
+
+export function ProseMirrorToolbar({ items, className, ...props }: ProseMirrorToolbarProps) {
+  if (!props.view || !props.state) return null;
+
+  const sortedItems = [...items].sort((a, b) => {
+    const groupDelta =
+      (TOOLBAR_GROUP_ORDER.indexOf(a.group) === -1 ? TOOLBAR_GROUP_ORDER.length : TOOLBAR_GROUP_ORDER.indexOf(a.group)) -
+      (TOOLBAR_GROUP_ORDER.indexOf(b.group) === -1 ? TOOLBAR_GROUP_ORDER.length : TOOLBAR_GROUP_ORDER.indexOf(b.group));
+    if (groupDelta !== 0) return groupDelta;
+    return (a.priority ?? 0) - (b.priority ?? 0);
+  });
+
+  return (
+    <div className={`loom-toolbar${className ? ` ${className}` : ""}`}>
+      {sortedItems.map((item) => (
+        <div key={item.id} style={{ display: "contents" }}>
+          {item.render(props)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function isMarkActive(state: EditorState, markType: MarkType): boolean {
+  const { from, $from, to, empty } = state.selection;
+  if (empty) return !!markType.isInSet(state.storedMarks ?? $from.marks());
+  return state.doc.rangeHasMark(from, to, markType);
+}
+
+export function isBlockActive(state: EditorState, nodeType: NodeType, attrs?: Record<string, unknown>): boolean {
+  const { $from, to } = state.selection;
+  return to <= $from.end() && $from.parent.hasMarkup(nodeType, attrs);
+}
+
+function isListActive(state: EditorState, listType: NodeType): boolean {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type === listType) return true;
+  }
+  return false;
+}
+
+function getListStyleType(state: EditorState, listType: NodeType, fallback: string): string {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (node.type === listType) {
+      return (node.attrs.listStyleType as string) || fallback;
+    }
+  }
+  return fallback;
+}
+
+function findListDepth(state: EditorState, listType: NodeType): number {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type === listType) return depth;
+  }
+  return -1;
+}
+
+function toggleList(listType: NodeType, otherListType: NodeType, listItemType: NodeType, fallbackStyle: string): Command {
+  return (state, dispatch, view) => {
+    const sameDepth = findListDepth(state, listType);
+    if (sameDepth !== -1) {
+      return liftListItem(listItemType)(state, dispatch, view);
+    }
+
+    const otherDepth = findListDepth(state, otherListType);
+    if (otherDepth !== -1) {
+      if (dispatch) {
+        const pos = state.selection.$from.before(otherDepth);
+        dispatch(state.tr.setNodeMarkup(pos, listType, { listStyleType: fallbackStyle }));
+      }
+      return true;
+    }
+
+    return wrapInList(listType, { listStyleType: fallbackStyle })(state, dispatch, view);
+  };
+}
+
+function setListStyle(listType: NodeType, otherListType: NodeType, styleType: string): Command {
+  return (state, dispatch, view) => {
+    const { $from } = state.selection;
+    for (let depth = $from.depth; depth > 0; depth -= 1) {
+      const node = $from.node(depth);
+      if (node.type === listType) {
+        if (dispatch) {
+          const pos = $from.before(depth);
+          dispatch(state.tr.setNodeMarkup(pos, null, { ...node.attrs, listStyleType: styleType }));
+        }
+        return true;
+      }
+      if (node.type === otherListType) {
+        if (dispatch) {
+          const pos = $from.before(depth);
+          dispatch(state.tr.setNodeMarkup(pos, listType, { listStyleType: styleType }));
+        }
+        return true;
+      }
+    }
+    return wrapInList(listType, { listStyleType: styleType })(state, dispatch, view);
+  };
+}
+
+function createInsertTableCommand(schema: Schema, rows: number, cols: number): Command {
+  return (state, dispatch) => {
+    const { table, table_row, table_cell, table_header } = schema.nodes;
+    if (!table || !table_row || !table_cell) return false;
+
+    const createCell = (header: boolean) => (header && table_header ? table_header : table_cell).createAndFill();
+    if (!createCell(true) || !createCell(false)) return false;
+
+    const createRow = (rowIndex: number) =>
+      table_row.create(
+        null,
+        Array.from({ length: cols }, () => createCell(rowIndex === 0)!)
+      );
+    const tableNode = table.create(null, Array.from({ length: rows }, (_, rowIndex) => createRow(rowIndex)));
+
+    if (dispatch) {
+      dispatch(state.tr.replaceSelectionWith(tableNode).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+export function createInsertImageCommand(
+  schema: Schema,
+  src: string,
+  attrs: { alt?: string; title?: string; imageId?: string } = {}
+): Command {
+  return (state, dispatch) => {
+    const image = schema.nodes.image;
+    if (!image) return false;
+    const imageNode = image.create({
+      src,
+      alt: attrs.alt ?? "",
+      title: attrs.title ?? null,
+      imageId: attrs.imageId ?? createImageId(),
+    });
+    if (dispatch) {
+      dispatch(state.tr.replaceSelectionWith(imageNode).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+export function createImageId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `image_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  return [Math.round(f(5) * 255), Math.round(f(3) * 255), Math.round(f(1) * 255)];
+}
+
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+
+  if (delta !== 0) {
+    if (max === rn) h = 60 * (((gn - bn) / delta) % 6);
+    else if (max === gn) h = 60 * ((bn - rn) / delta + 2);
+    else h = 60 * ((rn - gn) / delta + 4);
+  }
+
+  return [h < 0 ? h + 360 : h, max === 0 ? 0 : delta / max, max];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const match = hex.replace("#", "").match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return match ? [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16)] : null;
+}
+
+function applyColor(markType: MarkType, color: string | null): Command {
+  return (state, dispatch) => {
+    const { from, to } = state.selection;
+    if (dispatch) {
+      let transaction = state.tr.removeMark(from, to, markType);
+      if (color) {
+        transaction = transaction.addMark(from, to, markType.create({ color }));
+      }
+      dispatch(transaction);
+    }
+    return true;
+  };
+}
+
+function getMarkColor(state: EditorState, markType: MarkType): string | null {
+  const { from, $from, to, empty } = state.selection;
+  if (empty) {
+    const mark = markType.isInSet(state.storedMarks ?? $from.marks());
+    return mark ? (mark.attrs.color as string) : null;
+  }
+
+  let color: string | null = null;
+  state.doc.nodesBetween(from, to, (node) => {
+    if (color) return false;
+    const mark = node.marks.find((candidate) => candidate.type === markType);
+    if (mark) color = mark.attrs.color as string;
+    return !color;
+  });
+  return color;
+}
+
+function ColorPickerModal({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  onSave: (color: string) => void;
+  onCancel: () => void;
+}) {
+  const initialRgb = hexToRgb(initial) ?? [0, 0, 0];
+  const [h, s, v] = rgbToHsv(...initialRgb);
+  const hsvRef = useRef<HsvState>({ h, s, v });
+  const [hsv, setHsvState] = useState<HsvState>(hsvRef.current);
+  const [hexValue, setHexValue] = useState(initial.replace("#", "").padStart(6, "0"));
+  const [rgbInputs, setRgbInputs] = useState<[string, string, string]>(
+    initialRgb.map(String) as [string, string, string]
+  );
+  const gradientRef = useRef<HTMLCanvasElement>(null);
+  const hueRef = useRef<HTMLCanvasElement>(null);
+  const dragging = useRef<"grad" | "hue" | null>(null);
+
+  const [r, g, b] = hsvToRgb(hsv.h, hsv.s, hsv.v);
+  const currentColor = rgbToHex(r, g, b);
+
+  function updateHsv(next: HsvState) {
+    hsvRef.current = next;
+    setHsvState(next);
+    const [nextR, nextG, nextB] = hsvToRgb(next.h, next.s, next.v);
+    setHexValue(rgbToHex(nextR, nextG, nextB).replace("#", ""));
+    setRgbInputs([String(nextR), String(nextG), String(nextB)]);
+  }
+
+  useEffect(() => {
+    const canvas = gradientRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const [hueR, hueG, hueB] = hsvToRgb(hsv.h, 1, 1);
+    const horizontal = context.createLinearGradient(0, 0, CP_W, 0);
+    horizontal.addColorStop(0, "#fff");
+    horizontal.addColorStop(1, `rgb(${hueR},${hueG},${hueB})`);
+    context.fillStyle = horizontal;
+    context.fillRect(0, 0, CP_W, CP_H);
+
+    const vertical = context.createLinearGradient(0, 0, 0, CP_H);
+    vertical.addColorStop(0, "rgba(0,0,0,0)");
+    vertical.addColorStop(1, "#000");
+    context.fillStyle = vertical;
+    context.fillRect(0, 0, CP_W, CP_H);
+  }, [hsv.h]);
+
+  useEffect(() => {
+    const canvas = hueRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const gradient = context.createLinearGradient(0, 0, 0, HUE_H);
+    [0, 60, 120, 180, 240, 300, 360].forEach((value) => {
+      const [hueR, hueG, hueB] = hsvToRgb(value, 1, 1);
+      gradient.addColorStop(value / 360, `rgb(${hueR},${hueG},${hueB})`);
+    });
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, HUE_W, HUE_H);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (event: MouseEvent) => {
+      if (!dragging.current) return;
+
+      if (dragging.current === "grad") {
+        const canvas = gradientRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const nextS = Math.max(0, Math.min(event.clientX - rect.left, CP_W)) / CP_W;
+        const nextV = 1 - Math.max(0, Math.min(event.clientY - rect.top, CP_H)) / CP_H;
+        updateHsv({ ...hsvRef.current, s: nextS, v: nextV });
+        return;
+      }
+
+      const canvas = hueRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const nextH = (Math.max(0, Math.min(event.clientY - rect.top, HUE_H)) / HUE_H) * 360;
+      updateHsv({ ...hsvRef.current, h: nextH });
+    };
+
+    const onUp = () => {
+      dragging.current = null;
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  const onGradientDown = (event: React.MouseEvent) => {
+    event.preventDefault();
+    dragging.current = "grad";
+    const rect = gradientRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const nextS = Math.max(0, Math.min(event.clientX - rect.left, CP_W)) / CP_W;
+    const nextV = 1 - Math.max(0, Math.min(event.clientY - rect.top, CP_H)) / CP_H;
+    updateHsv({ ...hsvRef.current, s: nextS, v: nextV });
+  };
+
+  const onHueDown = (event: React.MouseEvent) => {
+    event.preventDefault();
+    dragging.current = "hue";
+    const rect = hueRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const nextH = (Math.max(0, Math.min(event.clientY - rect.top, HUE_H)) / HUE_H) * 360;
+    updateHsv({ ...hsvRef.current, h: nextH });
+  };
+
+  const onHexChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+    setHexValue(value);
+    if (value.length !== 6) return;
+    const rgb = hexToRgb(value);
+    if (!rgb) return;
+    const [nextH, nextS, nextV] = rgbToHsv(...rgb);
+    updateHsv({ h: nextH, s: nextS, v: nextV });
+  };
+
+  const onRgbChange = (index: 0 | 1 | 2, value: string) => {
+    const nextInputs = [...rgbInputs] as [string, string, string];
+    nextInputs[index] = value.replace(/[^0-9]/g, "").slice(0, 3);
+    setRgbInputs(nextInputs);
+
+    const numbers = nextInputs.map(Number);
+    if (numbers.some((number) => Number.isNaN(number) || number < 0 || number > 255)) return;
+    const [nextH, nextS, nextV] = rgbToHsv(numbers[0], numbers[1], numbers[2]);
+    updateHsv({ h: nextH, s: nextS, v: nextV });
+  };
+
+  return (
+    <div className="loom-cp-overlay" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <div className="loom-cp-modal">
+        <div className="loom-cp-header">
+          <span className="loom-cp-title">Color Picker</span>
+          <button type="button" className="loom-cp-close" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="loom-cp-body">
+          <div className="loom-cp-left">
+            <div className="loom-cp-grad-wrap" onMouseDown={onGradientDown}>
+              <canvas ref={gradientRef} width={CP_W} height={CP_H} />
+              <div className="loom-cp-grad-cursor" style={{ left: hsv.s * CP_W, top: (1 - hsv.v) * CP_H }} />
+            </div>
+            <div className="loom-cp-hue-wrap" onMouseDown={onHueDown}>
+              <canvas ref={hueRef} width={HUE_W} height={HUE_H} />
+              <div className="loom-cp-hue-cursor" style={{ top: (hsv.h / 360) * HUE_H }} />
+            </div>
+          </div>
+
+          <div className="loom-cp-right">
+            {(["R", "G", "B"] as const).map((label, index) => (
+              <div key={label} className="loom-cp-input-row">
+                <span className="loom-cp-input-label">{label}</span>
+                <input
+                  type="text"
+                  className="loom-cp-input"
+                  value={rgbInputs[index]}
+                  onChange={(event) => onRgbChange(index as 0 | 1 | 2, event.target.value)}
+                />
+              </div>
+            ))}
+            <div className="loom-cp-input-row">
+              <span className="loom-cp-input-label">#</span>
+              <input
+                type="text"
+                className="loom-cp-input loom-cp-input--hex"
+                value={hexValue}
+                onChange={onHexChange}
+                maxLength={6}
+              />
+            </div>
+            <div className="loom-cp-preview" style={{ backgroundColor: currentColor }} />
+          </div>
+        </div>
+
+        <div className="loom-cp-footer">
+          <button type="button" className="loom-cp-btn loom-cp-cancel" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
+            Cancel
+          </button>
+          <button type="button" className="loom-cp-btn loom-cp-save" onMouseDown={(event) => { event.preventDefault(); onSave(currentColor); }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ColorDropdown({
+  type,
+  view,
+  state,
+  markType,
+}: {
+  type: "text" | "highlight";
+  view: EditorView;
+  state: EditorState;
+  markType: MarkType;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const currentColor = getMarkColor(state, markType);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!wrapRef.current?.contains(target) && !dropRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const toggleDropdown = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (!open && wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen((current) => !current);
+  };
+
+  const pick = (color: string | null) => {
+    runCommand(view, applyColor(markType, color));
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <div ref={wrapRef} className="loom-color-wrap">
+        <ToolbarButton
+          title={type === "text" ? "Text color" : "Highlight color"}
+          onMouseDown={toggleDropdown}
+          className="loom-color-main-btn"
+        >
+          {type === "text" ? (
+            <span className="loom-color-icon-wrap">
+              <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>A</span>
+              <span className="loom-color-bar" style={{ backgroundColor: currentColor ?? "#000000" }} />
+            </span>
+          ) : (
+            <span className="loom-color-icon-wrap">
+              <Highlighter size={12} />
+              <span
+                className="loom-color-bar"
+                style={{
+                  backgroundColor: currentColor ?? "transparent",
+                  border: currentColor ? "none" : "1px dashed #adb5bd",
+                }}
+              />
+            </span>
+          )}
+        </ToolbarButton>
+        <ToolbarButton title="Color options" onMouseDown={toggleDropdown} className="loom-list-chevron">
+          <ChevronDown size={9} />
+        </ToolbarButton>
+      </div>
+
+      {open && dropPos && (
+        <div
+          ref={dropRef}
+          className="loom-color-dropdown"
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, zIndex: 9999 }}
+        >
+          <div className="loom-color-grid">
+            {PRESET_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                title={color}
+                data-active={currentColor === color || undefined}
+                className="loom-color-swatch"
+                style={{ backgroundColor: color }}
+                onMouseDown={(event) => { event.preventDefault(); pick(color); }}
+              />
+            ))}
+          </div>
+          <div className="loom-color-footer">
+            <button
+              type="button"
+              title="Black"
+              data-active={currentColor === "#000000" || undefined}
+              className="loom-color-swatch"
+              style={{ backgroundColor: "#000000" }}
+              onMouseDown={(event) => { event.preventDefault(); pick("#000000"); }}
+            />
+            <button
+              type="button"
+              title="Remove color"
+              className="loom-color-remove"
+              onMouseDown={(event) => { event.preventDefault(); pick(null); }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <rect x="1" y="1" width="16" height="16" rx="2" stroke="#d1d5db" strokeWidth="1" />
+                <line x1="4" y1="14" x2="14" y2="4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              title="Custom color"
+              className="loom-color-palette-btn"
+              onMouseDown={(event) => { event.preventDefault(); setShowModal(true); setOpen(false); }}
+            >
+              <Palette size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showModal && (
+        <ColorPickerModal
+          initial={currentColor ?? "#000000"}
+          onSave={(color) => { pick(color); setShowModal(false); }}
+          onCancel={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ListPreview({ listStyle, ordered }: { listStyle: string; ordered: boolean }) {
+  const Tag = ordered ? "ol" : "ul";
+  return (
+    <Tag className="loom-lp" style={{ listStyleType: listStyle }}>
+      <li className="loom-lp-item" />
+      <li className="loom-lp-item" />
+      <li className="loom-lp-item" />
+    </Tag>
+  );
+}
+
+export function ListStyleDropdown({
+  type,
+  view,
+  state,
+  schema,
+}: {
+  type: "bullet" | "ordered";
+  view: EditorView;
+  state: EditorState;
+  schema: Schema;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const listType = type === "bullet" ? schema.nodes.bullet_list : schema.nodes.ordered_list;
+  const otherType = type === "bullet" ? schema.nodes.ordered_list : schema.nodes.bullet_list;
+  const listItemType = schema.nodes.list_item;
+
+  if (!listType || !otherType || !listItemType) return null;
+
+  const fallbackStyle = type === "bullet" ? "disc" : "decimal";
+  const isActive = isListActive(state, listType);
+  const currentStyle = getListStyleType(state, listType, fallbackStyle);
+  const styles = type === "bullet" ? BULLET_STYLES : ORDERED_STYLES;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!wrapRef.current?.contains(target) && !dropRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const openPicker = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (!open && wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen((current) => !current);
+  };
+
+  return (
+    <>
+      <div ref={wrapRef} className="loom-list-picker-wrap">
+        <ToolbarButton
+          title={type === "bullet" ? "Bullet list" : "Ordered list"}
+          active={isActive}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            runCommand(view, toggleList(listType, otherType, listItemType, fallbackStyle));
+          }}
+        >
+          {type === "bullet" ? <List size={14} /> : <ListOrdered size={14} />}
+        </ToolbarButton>
+        <ToolbarButton title="List style" onMouseDown={openPicker} className="loom-list-chevron">
+          <ChevronDown size={9} />
+        </ToolbarButton>
+      </div>
+
+      {open && dropPos && (
+        <div
+          ref={dropRef}
+          className={`loom-list-picker${type === "ordered" ? " loom-list-picker--ordered" : ""}`}
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left }}
+        >
+          {styles.map((style) => (
+            <button
+              key={style}
+              type="button"
+              title={style}
+              data-active={currentStyle === style || undefined}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                runCommand(view, setListStyle(listType, otherType, style));
+                setOpen(false);
+              }}
+              className="loom-list-picker-option"
+            >
+              <ListPreview listStyle={style} ordered={type === "ordered"} />
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+export function TableInsertPicker({ view, schema }: { view: EditorView; schema: Schema }) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<{ r: number; c: number } | null>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !dropRef.current?.contains(target)) {
+        setOpen(false);
+        setHovered(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const openPicker = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen((current) => !current);
+    setHovered(null);
+  };
+
+  const insertTable = (rows: number, cols: number) => {
+    runCommand(view, createInsertTableCommand(schema, rows, cols));
+    setOpen(false);
+    setHovered(null);
+  };
+
+  const label = hovered ? `${hovered.c + 1} × ${hovered.r + 1}` : "Insert table";
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        title="Insert table"
+        onMouseDown={openPicker}
+        className="loom-toolbar-btn"
+      >
+        <Table2 size={14} />
+      </button>
+
+      {open && dropPos && (
+        <div
+          ref={dropRef}
+          className="loom-tbl-picker"
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left }}
+          onMouseLeave={() => setHovered(null)}
+        >
+          <div className="loom-tbl-grid">
+            {Array.from({ length: GRID_ROWS }, (_, rowIndex) =>
+              Array.from({ length: GRID_COLS }, (_, colIndex) => (
+                <div
+                  key={`${rowIndex}-${colIndex}`}
+                  className={`loom-tbl-cell${hovered && rowIndex <= hovered.r && colIndex <= hovered.c ? " loom-tbl-cell--on" : ""}`}
+                  onMouseEnter={() => setHovered({ r: rowIndex, c: colIndex })}
+                  onMouseDown={(event) => { event.preventDefault(); insertTable(rowIndex + 1, colIndex + 1); }}
+                />
+              ))
+            )}
+          </div>
+          <div className="loom-tbl-label">{label}</div>
+        </div>
+      )}
+    </>
+  );
+}

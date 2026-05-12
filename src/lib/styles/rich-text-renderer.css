@@ -1,0 +1,205 @@
+/* ── CSS custom properties ─────────────────────────────── */
+/* Override any of these on .loom-renderer or a parent to retheme */
+.loom-renderer {
+  /* Typography */
+  --loom-r-font: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --loom-r-font-size: 1rem;
+  --loom-r-line-height: 1.6;
+  --loom-r-text: #1f2937;
+  /* Headings */
+  --loom-r-heading-color: #111827;
+  --loom-r-h1-size: 1.875rem;
+  --loom-r-h2-size: 1.5rem;
+  --loom-r-h3-size: 1.25rem;
+  /* Links */
+  --loom-r-link: #2563eb;
+  --loom-r-link-hover: #1d4ed8;
+  /* Blockquote */
+  --loom-r-blockquote-border: #e5e7eb;
+  --loom-r-blockquote-color: #4b5563;
+  /* Code */
+  --loom-r-code-bg: #f3f4f6;
+  --loom-r-code-color: inherit;
+  /* Table */
+  --loom-r-table-header-bg: #1f2937;
+  --loom-r-table-header-color: #ffffff;
+  --loom-r-table-cell-color: #374151;
+  --loom-r-table-border: #e5e7eb;
+  --loom-r-table-row-hover: #f9fafb;
+  --loom-r-table-radius: .75rem;
+  --loom-r-table-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+  /* List markers */
+  --loom-r-marker-color: #6b7280;
+  /* Spacing */
+  --loom-r-block-gap: 1rem;
+
+  font-family: var(--loom-r-font);
+  font-size: var(--loom-r-font-size);
+  line-height: var(--loom-r-line-height);
+  color: var(--loom-r-text);
+}
+
+/* ── Headings ───────────────────────────────────────────── */
+.loom-renderer h1,
+.loom-renderer h2,
+.loom-renderer h3,
+.loom-renderer h4,
+.loom-renderer h5,
+.loom-renderer h6 {
+  color: var(--loom-r-heading-color);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: var(--loom-r-block-gap) 0 .5rem;
+}
+.loom-renderer h1 { font-size: var(--loom-r-h1-size); }
+.loom-renderer h2 { font-size: var(--loom-r-h2-size); }
+.loom-renderer h3 { font-size: var(--loom-r-h3-size); }
+.loom-renderer h4 { font-size: 1.125rem; }
+.loom-renderer h5 { font-size: 1rem; }
+.loom-renderer h6 { font-size: .875rem; }
+.loom-renderer h1:first-child,
+.loom-renderer h2:first-child,
+.loom-renderer h3:first-child { margin-top: 0; }
+
+/* ── Paragraphs ─────────────────────────────────────────── */
+.loom-renderer p { margin: 0 0 var(--loom-r-block-gap); }
+.loom-renderer p:last-child { margin-bottom: 0; }
+
+/* ── Lists ──────────────────────────────────────────────── */
+.loom-renderer ul,
+.loom-renderer ol {
+  margin: 0 0 var(--loom-r-block-gap);
+  padding-left: 1.5rem;
+  list-style-position: outside;
+}
+.loom-renderer ul { list-style-type: disc; }
+.loom-renderer ol { list-style-type: decimal; }
+.loom-renderer li { margin: .25rem 0; }
+.loom-renderer li::marker { color: var(--loom-r-marker-color); font-weight: 600; }
+.loom-renderer ul ul { list-style-type: circle; margin-top: .25rem; margin-bottom: .25rem; }
+.loom-renderer ul ul ul { list-style-type: square; }
+.loom-renderer ol ol { list-style-type: lower-alpha; }
+.loom-renderer ol ol ol { list-style-type: lower-roman; }
+/* Explicit list-style overrides from data-list-style attribute */
+.loom-renderer ul[data-list-style="circle"] { list-style-type: circle; }
+.loom-renderer ul[data-list-style="square"] { list-style-type: square; }
+.loom-renderer ol[data-list-style="lower-alpha"] { list-style-type: lower-alpha; }
+.loom-renderer ol[data-list-style="lower-greek"] { list-style-type: lower-greek; }
+.loom-renderer ol[data-list-style="lower-roman"] { list-style-type: lower-roman; }
+.loom-renderer ol[data-list-style="upper-alpha"] { list-style-type: upper-alpha; }
+.loom-renderer ol[data-list-style="upper-roman"] { list-style-type: upper-roman; }
+
+/* ── Blockquote ─────────────────────────────────────────── */
+.loom-renderer blockquote {
+  border-left: 4px solid var(--loom-r-blockquote-border);
+  padding-left: 1rem;
+  margin: var(--loom-r-block-gap) 0;
+  color: var(--loom-r-blockquote-color);
+  font-style: italic;
+}
+
+/* ── Code ───────────────────────────────────────────────── */
+.loom-renderer pre {
+  background: var(--loom-r-code-bg);
+  border-radius: .375rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: var(--loom-r-block-gap) 0;
+}
+.loom-renderer code {
+  background: var(--loom-r-code-bg);
+  color: var(--loom-r-code-color);
+  padding: .125em .375em;
+  border-radius: .25rem;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  font-size: .875em;
+}
+.loom-renderer pre code { background: none; padding: 0; }
+
+/* ── Links ──────────────────────────────────────────────── */
+.loom-renderer a {
+  color: var(--loom-r-link);
+  text-decoration: underline;
+  transition: color .15s;
+}
+.loom-renderer a:hover { color: var(--loom-r-link-hover); }
+
+/* ── Images ─────────────────────────────────────────────── */
+.loom-renderer img {
+  max-width: 100%;
+  height: auto;
+  border-radius: .375rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ── Tables ─────────────────────────────────────────────── */
+.loom-renderer table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: var(--loom-r-block-gap) 0;
+  border-radius: var(--loom-r-table-radius);
+  overflow: hidden;
+  box-shadow: var(--loom-r-table-shadow);
+}
+.loom-renderer td,
+.loom-renderer th {
+  padding: .75rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+/* Header row */
+.loom-renderer table thead th,
+.loom-renderer table thead td,
+.loom-renderer table > tr:first-child th,
+.loom-renderer table > tr:first-child td,
+.loom-renderer table > tbody > tr:first-child th,
+.loom-renderer table > tbody > tr:first-child td {
+  background-color: var(--loom-r-table-header-bg);
+  color: var(--loom-r-table-header-color);
+  font-weight: 700;
+}
+/* Body cells */
+.loom-renderer table > tbody > tr:not(:first-child) td,
+.loom-renderer table > tr:not(:first-child) td {
+  color: var(--loom-r-table-cell-color);
+  border-top: 1px solid var(--loom-r-table-border);
+}
+.loom-renderer table > tbody > tr:not(:first-child):hover td,
+.loom-renderer table > tr:not(:first-child):hover td {
+  background-color: var(--loom-r-table-row-hover);
+}
+/* Scroll wrapper */
+.loom-renderer .table-scroll-wrapper {
+  overflow-x: auto;
+  border-radius: var(--loom-r-table-radius);
+  box-shadow: var(--loom-r-table-shadow);
+  -webkit-overflow-scrolling: touch;
+  margin: var(--loom-r-block-gap) 0;
+}
+.loom-renderer .table-scroll-wrapper table {
+  box-shadow: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* ── Inline formatting ──────────────────────────────────── */
+.loom-renderer strong,
+.loom-renderer b { font-weight: 700; }
+.loom-renderer em,
+.loom-renderer i { font-style: italic; }
+.loom-renderer u { text-decoration: underline; }
+.loom-renderer s { text-decoration: line-through; }
+
+/* ── Accessibility ──────────────────────────────────────── */
+.loom-renderer:focus-visible { outline: 2px solid var(--loom-r-link); outline-offset: 2px; }
+.loom-renderer [contenteditable] { cursor: default !important; user-select: text !important; }
+
+/* ── Print ──────────────────────────────────────────────── */
+@media print {
+  .loom-renderer { color: black; }
+  .loom-renderer a { color: black; text-decoration: underline; }
+  .loom-renderer img,
+  .loom-renderer table { page-break-inside: avoid; }
+}

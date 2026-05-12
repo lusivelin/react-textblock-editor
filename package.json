@@ -1,7 +1,7 @@
 {
-  "name": "@rave/rich-text-editor",
+  "name": "@loom/editor",
   "version": "0.1.0",
-  "description": "Standalone HTML rich text editor with a built-in demo homepage.",
+  "description": "ProseMirror rich text editor library for React with a separate demo site.",
   "type": "module",
   "sideEffects": [
     "*.css"
@@ -33,47 +33,36 @@
   },
   "dependencies": {
     "@automerge/automerge": "^3.2.6",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@radix-ui/react-select": "^2.2.6",
-    "@radix-ui/react-separator": "^1.1.8",
-    "@radix-ui/react-slot": "^1.2.4",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "dompurify": "^3.3.1",
     "lucide-react": "^0.563.0",
     "orderedmap": "^2.1.1",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-history": "^1.5.0",
-    "prosemirror-inputrules": "^1.5.1",
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-model": "^1.25.4",
     "prosemirror-schema-basic": "^1.2.4",
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
-    "prosemirror-transform": "^1.12.0",
-    "prosemirror-view": "^1.41.8",
-    "tailwind-merge": "^3.4.0"
+    "prosemirror-view": "^1.41.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.7.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^8.0.11",
     "vite-plugin-wasm": "^3.6.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config vite.demo.config.ts",
     "build": "pnpm run build:lib && pnpm run build:docs",
-    "build:lib": "vite build --config vite.lib.config.ts && node ./scripts/build-css.mjs && tsc -p tsconfig.build.json",
-    "build:docs": "vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "build:lib": "vite build --config vite.lib.config.ts && node ./scripts/build-css.mjs && tsc -p tsconfig.lib.build.json",
+    "build:docs": "vite build --config vite.demo.config.ts",
+    "preview": "vite preview --config vite.demo.config.ts",
+    "typecheck": "pnpm run typecheck:lib && pnpm run typecheck:demo",
+    "typecheck:lib": "tsc -p tsconfig.lib.json --noEmit",
+    "typecheck:demo": "tsc -p tsconfig.demo.json --noEmit"
   }
 }
