@@ -27,6 +27,8 @@ test.describe("Status bar – unsaved changes indicator", () => {
   });
 
   test("does not show Unsaved changes before any edit", async ({ page }) => {
+    // Re-open a fresh page — the beforeEach clearEditor counts as a doc change.
+    await openPlayground(page);
     await expect(getStatusBar(page)).not.toContainText("Unsaved changes");
   });
 });
