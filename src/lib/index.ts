@@ -17,7 +17,6 @@ export type { EditorFeatureFlags, ResolvedEditorFeatureFlags } from "./core/edit
 export type {
   EditorExtension,
   EditorExtensionContext,
-  EditorExtensionInitialValueContext,
   EditorExtensionRuntimeContext,
   EditorEventHandlers,
   EditorOverlayProps,

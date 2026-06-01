@@ -28,9 +28,9 @@ export interface RichTextEditorFieldProps {
   onSave?: (html: string) => void | Promise<void>;
   onDiscard?: (html: string) => void | Promise<void>;
   onSaveStatusChange?: (status: SaveStatus) => void;
+  onSessionStateChange?: (state: DocumentSessionState) => void;
   persist?: boolean;
   documentId?: string;
-  onImageUpload?: (file: File) => Promise<string>;
   extensions?: EditorExtension[];
   placeholder?: string;
   height?: number;
@@ -43,162 +43,126 @@ export interface RichTextEditorFieldProps {
   classNames?: EditorClassNames;
   theme?: string;
   onLocalChange?: (html: string) => void;
-  onSessionStateChange?: (state: DocumentSessionState) => void;
 }
 
-export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEditorFieldProps>(function RichTextEditorField({
-  value,
-  onChange,
-  onLocalChange,
-  onSave,
-  onDiscard,
-  onSaveStatusChange,
-  persist,
-  documentId,
-  onImageUpload,
-  extensions,
-  placeholder = "Start writing…",
-  className,
-  height = 400,
-  darkMode = false,
-  readOnly = false,
-  lazyMount = true,
-  emptyLabel = "Click to add content…",
-  filledLabel = "Click to edit…",
-  classNames,
-  theme,
-  onSessionStateChange,
-}, ref) {
-  const [isEditing, setIsEditing] = useState(!lazyMount);
-  const [shouldMount, setShouldMount] = useState(!lazyMount);
-  const lastEmittedSessionStateRef = useRef<DocumentSessionState | null>(null);
-
-  const resolvedExtensions = useMemo<EditorExtension[]>(() => {
-    const exts =
-      extensions && extensions.length > 0
-        ? [...extensions]
-        : [
-            ...createDefaultEditorExtensions(),
-            createImageExtension({ onUpload: onImageUpload }),
-            createTablesExtension(),
-          ];
-
-    if (onImageUpload && !exts.find((e) => e.id === "images")) {
-      exts.push(createImageExtension({ onUpload: onImageUpload }));
-    }
-
-    resolveExtensionDependencies(exts);
-    return exts;
-  }, [extensions, onImageUpload]);
-
-  const extensionApis = useMemo(
-    () => new Map(resolvedExtensions.map((e) => [e.id, e.getApi?.()] as const)),
-    [resolvedExtensions]
-  );
-
-  const extensionContext = useMemo(
-    () => ({ documentId: documentId ?? "default", featureFlags: resolveEditorFeatureFlags() }),
-    [documentId]
-  );
-
-  const featureFlags = useMemo(
-    () => resolveEditorFeatureFlags(resolveExtensionFeatureFlags(resolvedExtensions, extensionContext)),
-    [extensionContext, resolvedExtensions]
-  );
-
-  const extensionPersistence = useMemo(
-    () => resolveExtensionSessionPersistence(resolvedExtensions, { ...extensionContext, featureFlags }),
-    [extensionContext, featureFlags, resolvedExtensions]
-  );
-
-  const persistence = useMemo(
-    () => extensionPersistence ?? (persist ? { enabled: true } : undefined),
-    [extensionPersistence, persist]
-  );
-
-  const { localContent, saveStatus, handleLocalChange, handleSave, handleDiscard, sessionState } =
-    useDocumentSession({
+export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEditorFieldProps>(
+  function RichTextEditorField(
+    {
       value,
       onChange,
       onLocalChange,
       onSave,
       onDiscard,
       onSaveStatusChange,
+      onSessionStateChange,
+      persist,
       documentId,
-      featureFlags,
-      persistence,
-    });
+      extensions,
+      placeholder = "Start writing…",
+      className,
+      height = 400,
+      darkMode = false,
+      readOnly = false,
+      lazyMount = true,
+      emptyLabel = "Click to add content…",
+      filledLabel = "Click to edit…",
+      classNames,
+      theme,
+    },
+    ref
+  ) {
+    const [mounted, setMounted] = useState(!lazyMount);
 
-  const handleEditorChange = useCallback((content: string) => {
-    handleLocalChange(content);
-    void notifyExtensionsOfLocalChange(resolvedExtensions, content, {
-      documentId: sessionState.documentId,
-      featureFlags: sessionState.featureFlags,
-    });
-  }, [handleLocalChange, resolvedExtensions, sessionState.documentId, sessionState.featureFlags]);
+    const resolvedExtensions = useMemo<EditorExtension[]>(() => {
+      const exts = extensions?.length
+        ? [...extensions]
+        : [...createDefaultEditorExtensions(), createImageExtension(), createTablesExtension()];
+      resolveExtensionDependencies(exts);
+      return exts;
+    }, [extensions]);
 
-  useImperativeHandle(ref, () => ({
-    getExtensionApi: <T,>(extensionId: string) => extensionApis.get(extensionId) as T | undefined,
-  }), [extensionApis]);
+    const extensionApis = useMemo(
+      () => new Map(resolvedExtensions.map((e) => [e.id, e.getApi?.()])),
+      [resolvedExtensions]
+    );
 
-  useEffect(() => {
-    const prev = lastEmittedSessionStateRef.current;
-    const changed =
-      !prev ||
-      prev.documentId !== sessionState.documentId ||
-      prev.savedContent !== sessionState.savedContent ||
-      prev.draftContent !== sessionState.draftContent ||
-      prev.hasUnsavedChanges !== sessionState.hasUnsavedChanges ||
-      prev.hasPersistedDraft !== sessionState.hasPersistedDraft ||
-      prev.persistenceKey !== sessionState.persistenceKey;
-    if (!changed) return;
-    lastEmittedSessionStateRef.current = sessionState;
-    onSessionStateChange?.(sessionState);
-  }, [onSessionStateChange, sessionState]);
+    const { featureFlags, persistence } = useMemo(() => {
+      const ctx = { documentId: documentId ?? "default", featureFlags: resolveEditorFeatureFlags() };
+      const flags = resolveEditorFeatureFlags(resolveExtensionFeatureFlags(resolvedExtensions, ctx));
+      const extPersistence = resolveExtensionSessionPersistence(resolvedExtensions, { ...ctx, featureFlags: flags });
+      return {
+        featureFlags: flags,
+        persistence: extPersistence ?? (persist ? { enabled: true } : undefined),
+      };
+    }, [documentId, persist, resolvedExtensions]);
 
-  useEffect(() => {
-    if (!lazyMount || !isEditing || shouldMount) return;
-    const id = setTimeout(() => setShouldMount(true), 0);
-    return () => clearTimeout(id);
-  }, [isEditing, lazyMount, shouldMount]);
+    const { localContent, saveStatus, handleLocalChange, handleSave, handleDiscard, sessionState } =
+      useDocumentSession({
+        value,
+        onChange,
+        onLocalChange,
+        onSave,
+        onDiscard,
+        onSaveStatusChange,
+        documentId,
+        featureFlags,
+        persistence,
+      });
 
-  const handleOpen = useCallback(() => {
-    setIsEditing(true);
-    setShouldMount(true);
-  }, []);
+    const handleEditorChange = useCallback(
+      (content: string) => {
+        handleLocalChange(content);
+        void notifyExtensionsOfLocalChange(resolvedExtensions, content, {
+          documentId: sessionState.documentId,
+          featureFlags: sessionState.featureFlags,
+        });
+      },
+      [handleLocalChange, resolvedExtensions, sessionState.documentId, sessionState.featureFlags]
+    );
 
-  if (!isEditing) {
+    useImperativeHandle(
+      ref,
+      () => ({ getExtensionApi: <T,>(id: string) => extensionApis.get(id) as T | undefined }),
+      [extensionApis]
+    );
+
+    useEffect(() => {
+      onSessionStateChange?.(sessionState);
+    }, [onSessionStateChange, sessionState]);
+
+    if (!mounted) {
+      return (
+        <button
+          type="button"
+          onClick={() => setMounted(true)}
+          className={cn("rtb-pm-trigger", darkMode && "rtb-pm-trigger--dark", className)}
+        >
+          {localContent && localContent !== "<p><br></p>" ? (
+            <span className="rtb-pm-trigger-filled">{filledLabel}</span>
+          ) : (
+            <span>{emptyLabel}</span>
+          )}
+        </button>
+      );
+    }
+
     return (
-      <button
-        type="button"
-        onClick={handleOpen}
-        className={cn("rtb-pm-trigger", darkMode && "rtb-pm-trigger--dark", className)}
-      >
-        {localContent && localContent !== "<p><br></p>"
-          ? <span className="rtb-pm-trigger-filled">{filledLabel}</span>
-          : <span>{emptyLabel}</span>}
-      </button>
+      <StructuredEditor
+        value={localContent || "<p><br></p>"}
+        onChange={handleEditorChange}
+        onSave={onSave ? handleSave : undefined}
+        onDiscard={onDiscard ? handleDiscard : undefined}
+        placeholder={placeholder}
+        className={className}
+        classNames={classNames}
+        readOnly={readOnly}
+        height={height}
+        darkMode={darkMode}
+        saveStatus={saveStatus}
+        sessionState={sessionState}
+        extensions={resolvedExtensions}
+        theme={theme}
+      />
     );
   }
-
-  if (!shouldMount) return null;
-
-  return (
-    <StructuredEditor
-      value={localContent || "<p><br></p>"}
-      onChange={handleEditorChange}
-      onSave={onSave ? handleSave : undefined}
-      onDiscard={onDiscard ? handleDiscard : undefined}
-      placeholder={placeholder}
-      className={className}
-      classNames={classNames}
-      readOnly={readOnly}
-      height={height}
-      darkMode={darkMode}
-      saveStatus={saveStatus}
-      sessionState={sessionState}
-      extensions={resolvedExtensions}
-      theme={theme}
-    />
-  );
-});
+);

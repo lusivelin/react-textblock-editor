@@ -22,13 +22,10 @@ interface UseDocumentSessionProps extends DocumentSessionOptions {
 
 interface UseDocumentSessionReturn {
   localContent: string;
-  hasUnsavedChanges: boolean;
   saveStatus: SaveStatus;
   handleLocalChange: (content: string) => void;
   handleSave: () => Promise<void>;
   handleDiscard: () => Promise<void>;
-  clearPersistedDraft: () => void;
-  applyHydratedContent: (content: string) => void;
   sessionState: DocumentSessionState;
 }
 
@@ -153,14 +150,6 @@ export function useDocumentSession({
     await onDiscardRef.current?.(currentValue);
   }, [clearPersistedDraft, currentValue]);
 
-  const currentValueRef = useRef(currentValue);
-  currentValueRef.current = currentValue;
-  const applyHydratedContent = useCallback((content: string) => {
-    setLocalContent(content);
-    setLastSavedContent(currentValueRef.current);
-    setHasUnsavedChanges(content !== currentValueRef.current);
-  }, []);
-
   const sessionState = useMemo<DocumentSessionState>(
     () => ({
       documentId: resolvedDocumentId,
@@ -174,5 +163,5 @@ export function useDocumentSession({
     [hasPersistedDraft, hasUnsavedChanges, lastSavedContent, localContent, persistenceKey, resolvedDocumentId, resolvedFeatureFlags]
   );
 
-  return { localContent, hasUnsavedChanges, saveStatus, handleLocalChange, handleSave, handleDiscard, clearPersistedDraft, applyHydratedContent, sessionState };
+  return { localContent, saveStatus, handleLocalChange, handleSave, handleDiscard, sessionState };
 }

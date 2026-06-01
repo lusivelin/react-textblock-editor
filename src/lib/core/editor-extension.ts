@@ -13,10 +13,6 @@ export interface EditorExtensionContext {
   featureFlags: ResolvedEditorFeatureFlags;
 }
 
-export interface EditorExtensionInitialValueContext extends EditorExtensionContext {
-  value?: string;
-}
-
 export interface EditorToolbarItemProps {
   view: EditorView;
   state: EditorState;
@@ -64,7 +60,6 @@ export interface EditorExtension {
   dependsOn?: string[];
   getFeatureFlags?: (context: EditorExtensionContext) => Partial<ResolvedEditorFeatureFlags>;
   getSessionPersistence?: (context: EditorExtensionContext) => DocumentSessionPersistenceOptions | undefined;
-  getInitialValue?: (context: EditorExtensionInitialValueContext) => MaybePromise<string | undefined>;
   onLocalChange?: (html: string, context: EditorExtensionContext) => MaybePromise<void>;
   getApi?: () => unknown;
   getSchema?: () => EditorSchemaSpec | undefined;

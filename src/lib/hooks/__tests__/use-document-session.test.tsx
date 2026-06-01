@@ -19,7 +19,7 @@ describe("useDocumentSession — initial state", () => {
     const { result } = renderHook(() =>
       useDocumentSession({ value: "<p>hello</p>" })
     );
-    expect(result.current.hasUnsavedChanges).toBe(false);
+    expect(result.current.sessionState.hasUnsavedChanges).toBe(false);
   });
 
   it("saveStatus starts as idle", () => {
@@ -42,7 +42,7 @@ describe("useDocumentSession — handleLocalChange", () => {
       useDocumentSession({ value: "<p>initial</p>" })
     );
     act(() => { result.current.handleLocalChange("<p>changed</p>"); });
-    expect(result.current.hasUnsavedChanges).toBe(true);
+    expect(result.current.sessionState.hasUnsavedChanges).toBe(true);
   });
 
   it("calls onChange callback", () => {
@@ -73,7 +73,7 @@ describe("useDocumentSession — handleSave", () => {
     );
     act(() => { result.current.handleLocalChange("<p>b</p>"); });
     await act(async () => { await result.current.handleSave(); });
-    expect(result.current.hasUnsavedChanges).toBe(false);
+    expect(result.current.sessionState.hasUnsavedChanges).toBe(false);
   });
 
   it("sets saveStatus to saved after successful save", async () => {
@@ -111,7 +111,7 @@ describe("useDocumentSession — handleDiscard", () => {
     );
     act(() => { result.current.handleLocalChange("<p>y</p>"); });
     await act(async () => { await result.current.handleDiscard(); });
-    expect(result.current.hasUnsavedChanges).toBe(false);
+    expect(result.current.sessionState.hasUnsavedChanges).toBe(false);
   });
 });
 
