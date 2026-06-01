@@ -48,6 +48,13 @@ export interface EditorSchemaSpec {
   marks?: Record<string, MarkSpec>;
 }
 
+export interface EditorEventHandlers {
+  /** Return true to prevent ProseMirror's default paste behaviour. */
+  handlePaste?: (view: EditorView, event: ClipboardEvent) => boolean | void;
+  /** Return true to prevent ProseMirror's default drop behaviour. */
+  handleDrop?: (view: EditorView, event: DragEvent) => boolean | void;
+}
+
 export interface EditorExtensionRuntimeContext extends EditorExtensionContext {
   schema: Schema;
 }
@@ -66,6 +73,7 @@ export interface EditorExtension {
   getNodeViews?: (context: EditorExtensionRuntimeContext) => ProseMirrorNodeViews | undefined;
   getToolbarItems?: (context: EditorExtensionRuntimeContext) => EditorToolbarItem[];
   getOverlays?: (context: EditorExtensionRuntimeContext) => EditorOverlayItem[];
+  getEditorHandlers?: (context: EditorExtensionRuntimeContext) => EditorEventHandlers;
 }
 
 export function resolveExtensionDependencies(extensions: EditorExtension[]): void {

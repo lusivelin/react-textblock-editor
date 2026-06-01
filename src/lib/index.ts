@@ -19,6 +19,7 @@ export type {
   EditorExtensionContext,
   EditorExtensionInitialValueContext,
   EditorExtensionRuntimeContext,
+  EditorEventHandlers,
   EditorOverlayProps,
   EditorOverlayItem,
   EditorSchemaSpec,

@@ -13,6 +13,8 @@ import { cn } from "../../utils/cn";
 import type { EditorClassNames } from "../../core/document-model";
 import type { EditorExtension, EditorExtensionRuntimeContext } from "../../core/editor-extension";
 import type { SaveStatus, DocumentSessionState } from "../../core/document-session";
+import { createDefaultEditorExtensions } from "../../extensions";
+import type { EditorState as ProseMirrorState } from "prosemirror-state";
 
 interface StructuredEditorRenderProps {
   value: string;
@@ -30,8 +32,14 @@ interface StructuredEditorRenderProps {
   extensions?: EditorExtension[];
   theme?: string;
 }
-import { createDefaultEditorExtensions } from "../../extensions";
-import type { Command } from "prosemirror-state";
+/** Compact snapshot of toolbar-relevant state: active marks + parent block type. */
+function toolbarSnapshot(state: ProseMirrorState): string {
+  const { from, $from, to, empty } = state.selection;
+  const marks = empty
+    ? (state.storedMarks ?? $from.marks()).map((m) => m.type.name).sort().join(",")
+    : "";
+  return `${from}:${to}|${$from.parent.type.name}|${marks}`;
+}
 
 class OverlayErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode }) {
@@ -68,6 +76,11 @@ export function StructuredEditor({
   const onDiscardRef = useRef(onDiscard);
   onDiscardRef.current = onDiscard;
   const tableHScrollAllowedRef = useRef(false);
+  const pasteHandlerRef = useRef<((view: EditorView, event: ClipboardEvent) => boolean | void) | undefined>(undefined);
+  const dropHandlerRef = useRef<((view: EditorView, event: DragEvent) => boolean | void) | undefined>(undefined);
+  // Snapshot of cursor-position-relevant toolbar state. Re-render is skipped
+  // when the cursor moves through content where marks and block type are unchanged.
+  const toolbarSnapshotRef = useRef<string>("");
 
   const [, setTick] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -90,64 +103,49 @@ export function StructuredEditor({
     }),
     [schema, sessionState.documentId, sessionState.featureFlags]
   );
-  const plugins = useMemo(
-    () => [
-      ...resolvedExtensions.flatMap((extension) => {
-        try {
-          return extension.getPlugins?.(extensionContext) ?? [];
-        } catch (err) {
-          console.warn(`[rtb] Extension "${extension.id}" getPlugins failed:`, err);
-          return [];
-        }
-      }),
-      ...resolvedExtensions
-        .map((extension) => {
-          try {
-            return extension.getKeymap?.(extensionContext);
-          } catch (err) {
-            console.warn(`[rtb] Extension "${extension.id}" getKeymap failed:`, err);
-            return undefined;
-          }
-        })
-        .filter((bindings): bindings is Record<string, Command> => Boolean(bindings))
-        .map((bindings) => keymap(bindings)),
-    ],
-    [extensionContext, resolvedExtensions]
-  );
-  const nodeViews = useMemo(
-    () =>
-      resolvedExtensions.reduce<NonNullable<DirectEditorProps["nodeViews"]>>((acc, extension) => {
-        try {
-          return { ...acc, ...extension.getNodeViews?.(extensionContext) };
-        } catch (err) {
-          console.warn(`[rtb] Extension "${extension.id}" getNodeViews failed:`, err);
-          return acc;
-        }
-      }, {}),
-    [extensionContext, resolvedExtensions]
-  );
-  const toolbarItems = useMemo(
-    () => resolvedExtensions.flatMap((extension) => {
+  // Single pass over all extensions — collect plugins, nodeViews, toolbar items,
+  // overlays, and event handlers in one iteration instead of 5 separate ones.
+  const { plugins, nodeViews, toolbarItems, overlays } = useMemo(() => {
+    const plugins: ReturnType<NonNullable<EditorExtension["getPlugins"]>> = [];
+    const nodeViews: NonNullable<DirectEditorProps["nodeViews"]> = {};
+    const toolbarItems: NonNullable<ReturnType<NonNullable<EditorExtension["getToolbarItems"]>>> = [];
+    const overlays: NonNullable<ReturnType<NonNullable<EditorExtension["getOverlays"]>>> = [];
+
+    for (const ext of resolvedExtensions) {
       try {
-        return extension.getToolbarItems?.(extensionContext) ?? [];
+        plugins.push(...(ext.getPlugins?.(extensionContext) ?? []));
+        const bindings = ext.getKeymap?.(extensionContext);
+        if (bindings) plugins.push(keymap(bindings));
+        Object.assign(nodeViews, ext.getNodeViews?.(extensionContext));
+        toolbarItems.push(...(ext.getToolbarItems?.(extensionContext) ?? []));
+        overlays.push(...(ext.getOverlays?.(extensionContext) ?? []));
       } catch (err) {
-        console.warn(`[rtb] Extension "${extension.id}" getToolbarItems failed:`, err);
+        console.warn(`[rtb] Extension "${ext.id}" setup failed:`, err);
+      }
+    }
+
+    return { plugins, nodeViews, toolbarItems, overlays };
+  }, [extensionContext, resolvedExtensions]);
+
+  // Update paste/drop handler refs in a separate effect so the view creation
+  // below doesn't depend on them (handlers are read via ref at call time).
+  useEffect(() => {
+    const handlers = resolvedExtensions.flatMap((ext) => {
+      try {
+        const h = ext.getEditorHandlers?.(extensionContext);
+        return h ? [h] : [];
+      } catch (err) {
+        console.warn(`[rtb] Extension "${ext.id}" getEditorHandlers failed:`, err);
         return [];
       }
-    }),
-    [extensionContext, resolvedExtensions]
-  );
-  const overlays = useMemo(
-    () => resolvedExtensions.flatMap((extension) => {
-      try {
-        return extension.getOverlays?.(extensionContext) ?? [];
-      } catch (err) {
-        console.warn(`[rtb] Extension "${extension.id}" getOverlays failed:`, err);
-        return [];
-      }
-    }),
-    [extensionContext, resolvedExtensions]
-  );
+    });
+    pasteHandlerRef.current = handlers.some((h) => h.handlePaste)
+      ? (view, event) => handlers.some((h) => h.handlePaste?.(view, event))
+      : undefined;
+    dropHandlerRef.current = handlers.some((h) => h.handleDrop)
+      ? (view, event) => handlers.some((h) => h.handleDrop?.(view, event))
+      : undefined;
+  }, [extensionContext, resolvedExtensions]);
 
   useEffect(() => {
     if (!theme) return;
@@ -178,6 +176,12 @@ export function StructuredEditor({
       state,
       editable: () => !readOnly,
       nodeViews,
+      handlePaste(view, event) {
+        return pasteHandlerRef.current?.(view, event) ?? false;
+      },
+      handleDrop(view, event) {
+        return dropHandlerRef.current?.(view, event) ?? false;
+      },
       handleKeyDown(_view, event) {
         if ((event.ctrlKey || event.metaKey) && event.key === "s") {
           event.preventDefault();
@@ -204,12 +208,20 @@ export function StructuredEditor({
         try {
           const next = view.state.apply(tr);
           view.updateState(next);
-          if (tr.docChanged || tr.selectionSet) {
+          if (tr.docChanged) {
+            const html = serializeDocToHtml(next.doc, schema);
+            lastEmittedRef.current = html;
+            onChangeRef.current?.(html);
+            // Doc change always warrants a toolbar re-render; reset snapshot.
+            toolbarSnapshotRef.current = "";
             setTick((t) => t + 1);
-            if (tr.docChanged) {
-              const html = serializeDocToHtml(next.doc, schema);
-              lastEmittedRef.current = html;
-              onChangeRef.current?.(html);
+          } else if (tr.selectionSet) {
+            // Only re-render when toolbar-relevant state actually changed:
+            // active marks at cursor or the parent block type.
+            const snap = toolbarSnapshot(next);
+            if (snap !== toolbarSnapshotRef.current) {
+              toolbarSnapshotRef.current = snap;
+              setTick((t) => t + 1);
             }
           }
         } catch (err) {
@@ -269,16 +281,16 @@ export function StructuredEditor({
         {saveStatus === "saving" && <><span className="rtb-spinner" />Saving…</>}
         {saveStatus === "saved" && "Saved"}
         {saveStatus === "error" && "Save failed"}
-        {(!saveStatus || saveStatus === "idle") && sessionState?.hasUnsavedChanges && (onSaveRef.current || onDiscardRef.current) && (
+        {(!saveStatus || saveStatus === "idle") && sessionState?.hasUnsavedChanges && (onSave || onDiscard) && (
           <>
             <span className="rtb-status-dot" />
             Unsaved changes
-            {onSaveRef.current && (
+            {onSave && (
               <button type="button" className="rtb-status-action-btn" onMouseDown={(e) => { e.preventDefault(); void onSaveRef.current?.(); }}>
                 Save
               </button>
             )}
-            {onDiscardRef.current && (
+            {onDiscard && (
               <button type="button" className="rtb-status-action-btn rtb-status-action-btn--discard" onMouseDown={(e) => { e.preventDefault(); void onDiscardRef.current?.(); }}>
                 Discard
               </button>

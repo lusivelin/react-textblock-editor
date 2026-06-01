@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 import { ChevronDown, ImagePlus, Link2, Upload } from "lucide-react";
-import type { NodeSpec } from "prosemirror-model";
+import type { NodeSpec, Schema } from "prosemirror-model";
 import type { EditorExtension } from "@lib/core/editor-extension";
 import type { EditorView } from "prosemirror-view";
-import type { Schema } from "prosemirror-model";
+import { TextSelection } from "prosemirror-state";
 import { ImageNodeView } from "@lib/components/prosemirror/image-view";
 import { createImageId, createInsertImageCommand, runCommand, ToolbarButton, ToolbarSeparator } from "@lib/components/prosemirror/toolbar";
 
@@ -487,6 +487,57 @@ function ImageInsertPopover({
   );
 }
 
+/**
+ * Insert an image file directly into the view.
+ *
+ * Flow:
+ * 1. Create a temporary object URL and insert the image immediately (instant feedback).
+ * 2. If `onUpload` is provided, upload in the background and swap `src` when done.
+ * 3. On upload failure, remove the placeholder node.
+ * 4. Always revoke the object URL when finished.
+ */
+async function insertFileIntoView(
+  file: File,
+  view: EditorView,
+  onUpload?: (file: File) => Promise<string>,
+  attrs: ImageInsertOptions = {}
+): Promise<void> {
+  const { schema } = view.state;
+  if (!schema.nodes.image) return;
+
+  const tempSrc = URL.createObjectURL(file);
+  const imageId = createImageId();
+
+  runCommand(view, createInsertImageCommand(schema, tempSrc, {
+    alt: attrs.alt ?? file.name.replace(/\.[^.]+$/, ""),
+    title: attrs.title ?? undefined,
+    imageId,
+  }));
+
+  if (!onUpload) return;
+
+  try {
+    const realSrc = await onUpload(file);
+    // Swap placeholder src for the real URL
+    view.state.doc.descendants((node, pos) => {
+      if (node.type === schema.nodes.image && (node.attrs as Record<string, unknown>).imageId === imageId) {
+        view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: realSrc }));
+        return false;
+      }
+    });
+  } catch {
+    // Remove the placeholder on failure
+    view.state.doc.descendants((node, pos) => {
+      if (node.type === schema.nodes.image && (node.attrs as Record<string, unknown>).imageId === imageId) {
+        view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
+        return false;
+      }
+    });
+  } finally {
+    URL.revokeObjectURL(tempSrc);
+  }
+}
+
 export function createImageExtension(options: ImageExtensionOptions = {}): EditorExtension {
   const runtime: ImageRuntimeBridge = {};
   const api: ImageExtensionApi = {
@@ -506,6 +557,35 @@ export function createImageExtension(options: ImageExtensionOptions = {}): Edito
     }),
     getNodeViews: () => ({
       image: (node, view, getPos) => new ImageNodeView(node, view, getPos as () => number | undefined),
+    }),
+    getEditorHandlers: () => ({
+      handlePaste(view, event) {
+        const items = event.clipboardData ? Array.from(event.clipboardData.items) : [];
+        const imageItem = items.find((item) => item.kind === "file" && item.type.startsWith("image/"));
+        if (!imageItem) return false;
+        const file = imageItem.getAsFile();
+        if (!file) return false;
+        event.preventDefault();
+        void insertFileIntoView(file, view, options.onUpload);
+        return true;
+      },
+      handleDrop(view, event) {
+        const files = event.dataTransfer
+          ? Array.from(event.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
+          : [];
+        if (!files.length) return false;
+        event.preventDefault();
+        // Move cursor to the drop position so images land where the user dropped
+        const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (dropPos) {
+          const $pos = view.state.doc.resolve(dropPos.pos);
+          view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
+        }
+        for (const file of files) {
+          void insertFileIntoView(file, view, options.onUpload);
+        }
+        return true;
+      },
     }),
     getToolbarItems: () => [
       {
