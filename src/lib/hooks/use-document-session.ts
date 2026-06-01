@@ -16,6 +16,7 @@ interface UseDocumentSessionProps extends DocumentSessionOptions {
   onChange?: (content: string) => void;
   onLocalChange?: (content: string) => void;
   onSave?: (content: string) => void | Promise<void>;
+  onDiscard?: (content: string) => void | Promise<void>;
   onSaveStatusChange?: (status: SaveStatus) => void;
 }
 
@@ -40,6 +41,7 @@ export function useDocumentSession({
   onChange,
   onLocalChange,
   onSave,
+  onDiscard,
   onSaveStatusChange,
   documentId,
   featureFlags,
@@ -48,7 +50,7 @@ export function useDocumentSession({
   const currentValue = value || "";
   const resolvedDocumentId = useMemo(() => resolveDocumentId(documentId), [documentId]);
   const resolvedFeatureFlags = useMemo(() => resolveEditorFeatureFlags(featureFlags), [featureFlags]);
-  const persistenceEnabled = Boolean(persistence?.enabled ?? resolvedFeatureFlags.offline);
+  const persistenceEnabled = Boolean(persistence?.enabled);
   const persistenceKey = useMemo(
     () => (persistenceEnabled ? createDraftStorageKey(resolvedDocumentId, persistence?.storageKey) : null),
     [persistenceEnabled, persistence?.storageKey, resolvedDocumentId]
@@ -63,6 +65,8 @@ export function useDocumentSession({
   const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSaveStatusChangeRef = useRef(onSaveStatusChange);
   onSaveStatusChangeRef.current = onSaveStatusChange;
+  const onDiscardRef = useRef(onDiscard);
+  onDiscardRef.current = onDiscard;
 
   const prevStatusRef = useRef<SaveStatus>("idle");
   useEffect(() => {
@@ -146,6 +150,7 @@ export function useDocumentSession({
     setLastSavedContent(currentValue);
     setHasUnsavedChanges(false);
     clearPersistedDraft();
+    await onDiscardRef.current?.(currentValue);
   }, [clearPersistedDraft, currentValue]);
 
   const currentValueRef = useRef(currentValue);

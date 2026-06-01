@@ -5,7 +5,6 @@ import {
   composeExtensions,
   createDefaultEditorExtensions,
   createImageExtension,
-  createLocalFirstExtension,
   createTablesExtension,
   RichTextEditorField,
   RichTextRenderer,
@@ -39,16 +38,20 @@ const INITIAL_CONTENT = sanitizeRichTextContent(`
 const EDITOR_PROP_ROWS: [string, string, string][] = [
   ["value", "string", "Server-persisted HTML. Only syncs into the editor when there are no unsaved local changes."],
   ["onChange", "(html: string) => void", "Fires on every keystroke. Wire to local React state for live preview."],
-  ["onSave", "(html: string) => Promise<void>", "Called when the user saves with Ctrl+S / Cmd+S. Providing this enables save behaviour."],
+  ["onSave", "(html: string) => Promise<void>", "Called when the user saves with Ctrl+S / Cmd+S. Also shows a Save button in the status bar when unsaved changes exist."],
+  ["onDiscard", "(html: string) => void | Promise<void>", "Called when the user discards unsaved changes. Shows a Discard button in the status bar alongside Save. The editor resets to the last saved value internally before calling this."],
   ["onSaveStatusChange", "(status: SaveStatus) => void", "Called when save status changes: 'idle' | 'saving' | 'saved' | 'error'."],
+  ["onSessionStateChange", "(state: DocumentSessionState) => void", "Called whenever session state changes — draft content, unsaved flag, persistence key."],
   ["extensions", "EditorExtension[]", "Primary capability API. Import extensions and pass them in the order you want them composed."],
-  ["localDraft", "boolean | string | { documentId, storageKey? }", "Legacy compatibility prop. Prefer createLocalFirstExtension(...) in new code."],
-  ["onImageUpload", "(file: File) => Promise<string>", "Legacy compatibility prop. Prefer createImageExtension({ onUpload }) in new code."],
+  ["persist", "boolean", "Save draft to localStorage. Cleared on successful save. Use documentId to scope the key."],
+  ["documentId", "string", "Scopes the localStorage draft key when persist is true. Default: \"default\"."],
   ["placeholder", "string", "Shown when the editor is empty."],
   ["height", "number", "Min-height in px. Default: 400."],
   ["darkMode", "boolean", "Enable dark theme."],
   ["readOnly", "boolean", "Disable all editing."],
   ["lazyMount", "boolean", "Mount ProseMirror only on first click. Default: true."],
+  ["emptyLabel", "string", "Trigger button label when value is empty (lazyMount mode)."],
+  ["filledLabel", "string", "Trigger button label when value has content (lazyMount mode)."],
   ["classNames", "EditorClassNames", "CSS class overrides for root, toolbar, content, and actionBar."],
   ["theme", "string", "CSS string injected at runtime for per-component theming."],
 ];
@@ -109,7 +112,7 @@ export function DemoApp() {
   const [savedContent, setSavedContent] = useState(INITIAL_CONTENT);
   const [draftContent, setDraftContent] = useState(INITIAL_CONTENT);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [localDraftEnabled, setLocalDraftEnabled] = useState(false);
+  const [persistEnabled, setPersistEnabled] = useState(false);
   const [imagesEnabled, setImagesEnabled] = useState(true);
   const [tablesEnabled, setTablesEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("playground");
@@ -119,9 +122,8 @@ export function DemoApp() {
         ...createDefaultEditorExtensions(),
         imagesEnabled && createImageExtension({ onUpload: mockImageUpload }),
         tablesEnabled && createTablesExtension(),
-        localDraftEnabled && createLocalFirstExtension({ documentId: "demo-playground", enabled: true })
       ),
-    [imagesEnabled, localDraftEnabled, tablesEnabled]
+    [imagesEnabled, tablesEnabled]
   );
 
   return (
@@ -131,7 +133,7 @@ export function DemoApp() {
         <div className="docs-sidebar-logo">
           <div className="docs-logo-mark">&gt;_</div>
           <div className="docs-logo-text">
-            <div className="docs-logo-name">LOOM</div>
+            <div className="docs-logo-name">Textblock</div>
             <div className="docs-logo-sub">editor</div>
           </div>
         </div>
@@ -153,7 +155,7 @@ export function DemoApp() {
           <div className="docs-sidebar-user">
             <div className="docs-user-avatar">&gt;_</div>
             <div className="docs-user-info">
-              <div className="docs-user-name">@loom/editor</div>
+              <div className="docs-user-name">react-textblock</div>
               <div className="docs-user-badge">v0.1.0</div>
             </div>
           </div>
@@ -164,7 +166,7 @@ export function DemoApp() {
       <div className="app-body">
         <div className="docs-page-header">
           <div className="docs-page-title">
-            <h2>Loom Editor</h2>
+            <h2>Textblock Editor</h2>
             <p>ProseMirror rich text editor for React</p>
           </div>
           <div className="docs-tabs" role="tablist">
@@ -247,15 +249,15 @@ export function DemoApp() {
                   </label>
                   <label className="demo-extension-row">
                     <div className="demo-extension-info">
-                      <span className="demo-extension-name">local-first</span>
+                      <span className="demo-extension-name">persist</span>
                       <span className="demo-extension-desc">
-                        Import the local-first extension to persist drafts to localStorage.
+                        Save draft to localStorage. Clears automatically on successful save.
                       </span>
                     </div>
                     <input
                       type="checkbox"
-                      checked={localDraftEnabled}
-                      onChange={(e) => setLocalDraftEnabled(e.target.checked)}
+                      checked={persistEnabled}
+                      onChange={(e) => setPersistEnabled(e.target.checked)}
                     />
                   </label>
                 </div>
@@ -269,7 +271,13 @@ export function DemoApp() {
                     await new Promise((r) => setTimeout(r, 400));
                     setSavedContent(html);
                   }}
+                  onDiscard={(html) => {
+                    // Editor has already reset internally — sync our live preview state
+                    setDraftContent(html);
+                  }}
                   onSaveStatusChange={setSaveStatus}
+                  persist={persistEnabled}
+                  documentId="demo-playground"
                   extensions={playgroundExtensions}
                   placeholder="Start typing…"
                   height={400}
@@ -304,9 +312,9 @@ export function DemoApp() {
                 <div className="demo-panel-header">
                   <h3>Install</h3>
                 </div>
-                <CodeBlock lang="shell">{`pnpm add @loom/editor`}</CodeBlock>
+                <CodeBlock lang="shell">{`pnpm add react-textblock-editor`}</CodeBlock>
                 <p className="docs-note">Import the stylesheet once at your app entry point.</p>
-                <CodeBlock lang="ts">{`import "@loom/editor/style.css";`}</CodeBlock>
+                <CodeBlock lang="ts">{`import "react-textblock-editor/style.css";`}</CodeBlock>
               </section>
 
               <section className="demo-panel" id="basic-usage">
@@ -320,7 +328,7 @@ export function DemoApp() {
   createTablesExtension,
   RichTextEditorField,
   RichTextRenderer,
-} from "@loom/editor";
+} from "react-textblock-editor";
 
 function ArticleEditor() {
   const [savedHtml, setSavedHtml] = useState("<p>Hello</p>");
@@ -379,7 +387,7 @@ const [localHtml, setLocalHtml] = useState(serverHtml);
                   <h3>Save status feedback</h3>
                   <p>Wire <code>onSaveStatusChange</code> to your own status indicator, or let the built-in toolbar badge handle it.</p>
                 </div>
-                <CodeBlock lang="tsx">{`import type { SaveStatus } from "@loom/editor";
+                <CodeBlock lang="tsx">{`import type { SaveStatus } from "react-textblock-editor";
 
 const [status, setStatus] = useState<SaveStatus>("idle");
 
@@ -394,25 +402,22 @@ const [status, setStatus] = useState<SaveStatus>("idle");
 <p>{status === "saving" ? "Saving…" : status === "saved" ? "All changes saved" : null}</p>`}</CodeBlock>
               </section>
 
-              <section className="demo-panel" id="local-draft">
+              <section className="demo-panel" id="persist">
                 <div className="demo-panel-header">
-                  <h3>Extension composition</h3>
-                  <p>Make a tool appear by importing its extension and adding it to the array.</p>
+                  <h3>Draft persistence</h3>
+                  <p>Pass <code>persist</code> to save the draft to localStorage. Clears on successful save.</p>
                 </div>
-                <CodeBlock lang="tsx">{`const extensions = composeExtensions(
-  ...createDefaultEditorExtensions(),
-  createImageExtension({ onUpload: api.uploadImage }),
-  createTablesExtension(),
-  createLocalFirstExtension({ documentId: "article:home", enabled: true }),
-);
-
-<RichTextEditorField
+                <CodeBlock lang="tsx">{`<RichTextEditorField
   value={serverHtml}
-  extensions={extensions}
-  onSave={api.save}
+  documentId="article:home"
+  persist
+  onSave={async (html) => {
+    await api.save(html);
+    setServerHtml(html);
+  }}
 />`}</CodeBlock>
                 <p className="docs-note">
-                  Removing an extension removes its toolbar UI and runtime wiring from that editor instance.
+                  <code>documentId</code> scopes the localStorage key. Use a stable unique ID per document.
                 </p>
               </section>
 
@@ -434,6 +439,78 @@ const [status, setStatus] = useState<SaveStatus>("idle");
     setServerHtml(html);
   }}
 />`}</CodeBlock>
+              </section>
+
+              <section className="demo-panel" id="sanity-wrapper">
+                <div className="demo-panel-header">
+                  <h3>Sanity Studio wrapper</h3>
+                  <p>
+                    Use the editor as a custom input for a Sanity <code>string</code> field that stores HTML.
+                    Wire Sanity's <code>onChange</code> to <code>set</code> / <code>unset</code> — no <code>onSave</code> needed since Sanity manages persistence.
+                  </p>
+                </div>
+                <CodeBlock lang="tsx">{`// sanity-loom-input.tsx
+import { useMemo } from "react";
+import { set, unset } from "sanity";
+import type { StringInputProps } from "sanity";
+import {
+  RichTextEditorField,
+  createDefaultEditorExtensions,
+  createImageExtension,
+} from "react-textblock-editor";
+import "react-textblock-editor/style.css";
+
+export function LoomInput({ value, onChange }: StringInputProps) {
+  const extensions = useMemo(
+    () => [
+      ...createDefaultEditorExtensions(),
+      createImageExtension({ onUpload: api.uploadImage }),
+    ],
+    []
+  );
+
+  return (
+    <RichTextEditorField
+      value={value ?? ""}
+      extensions={extensions}
+      onChange={(html) => onChange(html ? set(html) : unset())}
+    />
+  );
+}`}</CodeBlock>
+                <p className="docs-note">Register the component in your schema definition.</p>
+                <CodeBlock lang="ts">{`// sanity.config.ts
+import { defineConfig, defineField, defineType } from "sanity";
+import { LoomInput } from "./sanity-loom-input";
+
+export default defineConfig({
+  schema: {
+    types: [
+      defineType({
+        name: "article",
+        type: "document",
+        fields: [
+          defineField({
+            name: "body",
+            title: "Body",
+            type: "string",
+            components: { input: LoomInput },
+          }),
+        ],
+      }),
+    ],
+  },
+});`}</CodeBlock>
+                <p className="docs-note">
+                  To render the saved HTML outside Sanity Studio, use <code>RichTextRenderer</code> with the field value retrieved via GROQ.
+                </p>
+                <CodeBlock lang="tsx">{`// article-page.tsx — Next.js / any React frontend
+import { RichTextRenderer } from "react-textblock-editor";
+import "react-textblock-editor/style.css";
+
+// GROQ: *[_type == "article"][0]{ body }
+export function ArticlePage({ body }: { body: string }) {
+  return <RichTextRenderer content={body} className="prose" />;
+}`}</CodeBlock>
               </section>
             </>
           )}
@@ -494,14 +571,18 @@ editorRef.current?.getExtensionApi<ImageExtensionApi>("images")?.insertImageFrom
                   <CodeBlock lang="ts">{`type SaveStatus = "idle" | "saving" | "saved" | "error"`}</CodeBlock>
                 </section>
 
-                <section className="demo-panel" id="local-draft-type">
+                <section className="demo-panel" id="persist-prop">
                   <div className="demo-panel-header">
-                    <h3>LocalDraftConfig</h3>
+                    <h3>persist prop</h3>
                   </div>
-                  <CodeBlock lang="ts">{`interface LocalDraftConfig {
-  documentId: string;   // scopes the localStorage key
-  storageKey?: string;  // override the auto-generated key
-}`}</CodeBlock>
+                  <CodeBlock lang="tsx">{`// Saves draft to localStorage under key:
+// "rtb-editor:draft:<documentId>"
+<RichTextEditorField
+  documentId="article:home"
+  persist
+  value={serverHtml}
+  onSave={api.save}
+/>`}</CodeBlock>
                 </section>
 
                 <section className="demo-panel" id="themes">
@@ -509,7 +590,7 @@ editorRef.current?.getExtensionApi<ImageExtensionApi>("images")?.insertImageFrom
                     <h3>Themes</h3>
                     <p>Import a CSS file or use the <code>theme</code> prop for runtime switching.</p>
                   </div>
-                  <CodeBlock lang="ts">{`import { darkTheme, minimalTheme } from "@loom/editor";
+                  <CodeBlock lang="ts">{`import { darkTheme, minimalTheme } from "react-textblock-editor";
 
 <RichTextEditorField theme={darkTheme} ... />
 <RichTextEditorField theme={minimalTheme} ... />`}</CodeBlock>

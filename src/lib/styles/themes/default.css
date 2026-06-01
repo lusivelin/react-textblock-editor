@@ -1,33 +1,33 @@
 /* ── Default (light) theme ───────────────────────────────────────────────────── */
 /* Import this file (or let style.css import it for you) for the default look.   */
-/* Override any variable on .loom-pm or a parent element to customise.           */
-.loom-pm {
+/* Override any variable on .rtb-pm or a parent element to customise.           */
+.rtb-pm {
   /* Surface */
-  --loom-bg: #ffffff;
-  --loom-text: #111827;
-  --loom-border: #e2e8f0;
-  --loom-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1);
-  --loom-radius: .375rem;
-  --loom-accent: #3b82f6;
+  --rtb-bg: #ffffff;
+  --rtb-text: #111827;
+  --rtb-border: #e2e8f0;
+  --rtb-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1);
+  --rtb-radius: .375rem;
+  --rtb-accent: #3b82f6;
   /* Toolbar */
-  --loom-toolbar-bg: #f8fafc;
-  --loom-toolbar-border: #e2e8f0;
+  --rtb-toolbar-bg: #f8fafc;
+  --rtb-toolbar-border: #e2e8f0;
   /* Buttons */
-  --loom-btn-color: #64748b;
-  --loom-btn-hover-bg: #f1f5f9;
-  --loom-btn-hover-color: #1e293b;
-  --loom-btn-active-bg: #e2e8f0;
-  --loom-btn-active-color: #0f172a;
+  --rtb-btn-color: #64748b;
+  --rtb-btn-hover-bg: #f1f5f9;
+  --rtb-btn-hover-color: #1e293b;
+  --rtb-btn-active-bg: #e2e8f0;
+  --rtb-btn-active-color: #0f172a;
   /* Action bar */
-  --loom-actionbar-bg: #f8fafc;
-  --loom-actionbar-border: #e2e8f0;
+  --rtb-actionbar-bg: #f8fafc;
+  --rtb-actionbar-border: #e2e8f0;
   /* Separators */
-  --loom-sep-color: #e2e8f0;
+  --rtb-sep-color: #e2e8f0;
   /* Popups / dropdowns */
-  --loom-popup-bg: #ffffff;
-  --loom-popup-border: #e2e8f0;
-  --loom-popup-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+  --rtb-popup-bg: #ffffff;
+  --rtb-popup-border: #e2e8f0;
+  --rtb-popup-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
   /* Danger */
-  --loom-danger-color: #ef4444;
-  --loom-danger-hover-bg: #fef2f2;
+  --rtb-danger-color: #ef4444;
+  --rtb-danger-hover-bg: #fef2f2;
 }

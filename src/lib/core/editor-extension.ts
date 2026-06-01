@@ -23,6 +23,8 @@ export interface EditorToolbarItemProps {
   schema: Schema;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  isSourceMode?: boolean;
+  onToggleSourceMode?: () => void;
 }
 
 export interface EditorOverlayProps extends EditorToolbarItemProps {
@@ -71,7 +73,7 @@ export function resolveExtensionDependencies(extensions: EditorExtension[]): voi
   for (const extension of extensions) {
     for (const dependency of extension.dependsOn ?? []) {
       if (!extensionIds.has(dependency)) {
-        throw new Error(`Editor extension "${extension.id}" requires missing dependency "${dependency}".`);
+        throw new Error(`[rtb] Extension "${extension.id}" requires missing dependency "${dependency}".`);
       }
     }
   }
@@ -104,6 +106,10 @@ export async function notifyExtensionsOfLocalChange(
   context: EditorExtensionContext
 ): Promise<void> {
   for (const extension of extensions) {
-    await extension.onLocalChange?.(html, context);
+    try {
+      await extension.onLocalChange?.(html, context);
+    } catch (err) {
+      console.warn(`[rtb] Extension "${extension.id}" onLocalChange failed:`, err);
+    }
   }
 }

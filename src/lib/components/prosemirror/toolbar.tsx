@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { Component, forwardRef, useEffect, useRef, useState } from "react";
 import type React from "react";
 import {
   ChevronDown,
@@ -15,6 +15,16 @@ import type { MarkType, NodeType, Schema } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { cn } from "../../utils/cn";
 import type { EditorToolbarItem, EditorToolbarItemProps } from "../../core/editor-extension";
+
+class ToolbarItemErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err: unknown) { console.warn("[rtb] Toolbar item render failed:", err); }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
 
 const TOOLBAR_GROUP_ORDER = ["history", "inline", "block", "insert", "view"];
 const PRESET_COLORS = [
@@ -42,6 +52,8 @@ interface HsvState {
 export interface ProseMirrorToolbarProps extends EditorToolbarItemProps {
   items: EditorToolbarItem[];
   className?: string;
+  isSourceMode?: boolean;
+  onToggleSourceMode?: () => void;
 }
 
 export function runCommand(view: EditorView, command: Command) {
@@ -50,7 +62,7 @@ export function runCommand(view: EditorView, command: Command) {
 }
 
 export function ToolbarSeparator() {
-  return <span className="loom-toolbar-sep" />;
+  return <span className="rtb-toolbar-sep" />;
 }
 
 export const ToolbarButton = forwardRef<HTMLButtonElement, {
@@ -68,7 +80,7 @@ export const ToolbarButton = forwardRef<HTMLButtonElement, {
         title={title}
         data-active={active || undefined}
         onMouseDown={onMouseDown}
-        className={cn("loom-toolbar-btn", className)}
+        className={cn("rtb-toolbar-btn", className)}
       >
         {children}
       </button>
@@ -78,7 +90,7 @@ export const ToolbarButton = forwardRef<HTMLButtonElement, {
 
 ToolbarButton.displayName = "ToolbarButton";
 
-export function ProseMirrorToolbar({ items, className, ...props }: ProseMirrorToolbarProps) {
+export function ProseMirrorToolbar({ items, className, isSourceMode, onToggleSourceMode, ...props }: ProseMirrorToolbarProps) {
   if (!props.view || !props.state) return null;
 
   const sortedItems = [...items].sort((a, b) => {
@@ -89,12 +101,14 @@ export function ProseMirrorToolbar({ items, className, ...props }: ProseMirrorTo
     return (a.priority ?? 0) - (b.priority ?? 0);
   });
 
+  const itemProps = { ...props, isSourceMode, onToggleSourceMode };
+
   return (
-    <div className={`loom-toolbar${className ? ` ${className}` : ""}`}>
+    <div className={`rtb-toolbar${isSourceMode ? " rtb-toolbar--source-mode" : ""}${className ? ` ${className}` : ""}`}>
       {sortedItems.map((item) => (
-        <div key={item.id} style={{ display: "contents" }}>
-          {item.render(props)}
-        </div>
+        <ToolbarItemErrorBoundary key={item.id}>
+          {item.render(itemProps)}
+        </ToolbarItemErrorBoundary>
       ))}
     </div>
   );
@@ -439,58 +453,58 @@ function ColorPickerModal({
   };
 
   return (
-    <div className="loom-cp-overlay" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-      <div className="loom-cp-modal">
-        <div className="loom-cp-header">
-          <span className="loom-cp-title">Color Picker</span>
-          <button type="button" className="loom-cp-close" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
+    <div className="rtb-cp-overlay" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <div className="rtb-cp-modal">
+        <div className="rtb-cp-header">
+          <span className="rtb-cp-title">Color Picker</span>
+          <button type="button" className="rtb-cp-close" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
             <X size={14} />
           </button>
         </div>
 
-        <div className="loom-cp-body">
-          <div className="loom-cp-left">
-            <div className="loom-cp-grad-wrap" onMouseDown={onGradientDown}>
+        <div className="rtb-cp-body">
+          <div className="rtb-cp-left">
+            <div className="rtb-cp-grad-wrap" onMouseDown={onGradientDown}>
               <canvas ref={gradientRef} width={CP_W} height={CP_H} />
-              <div className="loom-cp-grad-cursor" style={{ left: hsv.s * CP_W, top: (1 - hsv.v) * CP_H }} />
+              <div className="rtb-cp-grad-cursor" style={{ left: hsv.s * CP_W, top: (1 - hsv.v) * CP_H }} />
             </div>
-            <div className="loom-cp-hue-wrap" onMouseDown={onHueDown}>
+            <div className="rtb-cp-hue-wrap" onMouseDown={onHueDown}>
               <canvas ref={hueRef} width={HUE_W} height={HUE_H} />
-              <div className="loom-cp-hue-cursor" style={{ top: (hsv.h / 360) * HUE_H }} />
+              <div className="rtb-cp-hue-cursor" style={{ top: (hsv.h / 360) * HUE_H }} />
             </div>
           </div>
 
-          <div className="loom-cp-right">
+          <div className="rtb-cp-right">
             {(["R", "G", "B"] as const).map((label, index) => (
-              <div key={label} className="loom-cp-input-row">
-                <span className="loom-cp-input-label">{label}</span>
+              <div key={label} className="rtb-cp-input-row">
+                <span className="rtb-cp-input-label">{label}</span>
                 <input
                   type="text"
-                  className="loom-cp-input"
+                  className="rtb-cp-input"
                   value={rgbInputs[index]}
                   onChange={(event) => onRgbChange(index as 0 | 1 | 2, event.target.value)}
                 />
               </div>
             ))}
-            <div className="loom-cp-input-row">
-              <span className="loom-cp-input-label">#</span>
+            <div className="rtb-cp-input-row">
+              <span className="rtb-cp-input-label">#</span>
               <input
                 type="text"
-                className="loom-cp-input loom-cp-input--hex"
+                className="rtb-cp-input rtb-cp-input--hex"
                 value={hexValue}
                 onChange={onHexChange}
                 maxLength={6}
               />
             </div>
-            <div className="loom-cp-preview" style={{ backgroundColor: currentColor }} />
+            <div className="rtb-cp-preview" style={{ backgroundColor: currentColor }} />
           </div>
         </div>
 
-        <div className="loom-cp-footer">
-          <button type="button" className="loom-cp-btn loom-cp-cancel" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
+        <div className="rtb-cp-footer">
+          <button type="button" className="rtb-cp-btn rtb-cp-cancel" onMouseDown={(event) => { event.preventDefault(); onCancel(); }}>
             Cancel
           </button>
-          <button type="button" className="loom-cp-btn loom-cp-save" onMouseDown={(event) => { event.preventDefault(); onSave(currentColor); }}>
+          <button type="button" className="rtb-cp-btn rtb-cp-save" onMouseDown={(event) => { event.preventDefault(); onSave(currentColor); }}>
             Save
           </button>
         </div>
@@ -545,22 +559,22 @@ export function ColorDropdown({
 
   return (
     <>
-      <div ref={wrapRef} className="loom-color-wrap">
+      <div ref={wrapRef} className="rtb-color-wrap">
         <ToolbarButton
           title={type === "text" ? "Text color" : "Highlight color"}
           onMouseDown={toggleDropdown}
-          className="loom-color-main-btn"
+          className="rtb-color-main-btn"
         >
           {type === "text" ? (
-            <span className="loom-color-icon-wrap">
+            <span className="rtb-color-icon-wrap">
               <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>A</span>
-              <span className="loom-color-bar" style={{ backgroundColor: currentColor ?? "#000000" }} />
+              <span className="rtb-color-bar" style={{ backgroundColor: currentColor ?? "#000000" }} />
             </span>
           ) : (
-            <span className="loom-color-icon-wrap">
+            <span className="rtb-color-icon-wrap">
               <Highlighter size={12} />
               <span
-                className="loom-color-bar"
+                className="rtb-color-bar"
                 style={{
                   backgroundColor: currentColor ?? "transparent",
                   border: currentColor ? "none" : "1px dashed #adb5bd",
@@ -569,7 +583,7 @@ export function ColorDropdown({
             </span>
           )}
         </ToolbarButton>
-        <ToolbarButton title="Color options" onMouseDown={toggleDropdown} className="loom-list-chevron">
+        <ToolbarButton title="Color options" onMouseDown={toggleDropdown} className="rtb-list-chevron">
           <ChevronDown size={9} />
         </ToolbarButton>
       </div>
@@ -577,35 +591,35 @@ export function ColorDropdown({
       {open && dropPos && (
         <div
           ref={dropRef}
-          className="loom-color-dropdown"
+          className="rtb-color-dropdown"
           style={{ position: "fixed", top: dropPos.top, left: dropPos.left, zIndex: 9999 }}
         >
-          <div className="loom-color-grid">
+          <div className="rtb-color-grid">
             {PRESET_COLORS.map((color) => (
               <button
                 key={color}
                 type="button"
                 title={color}
                 data-active={currentColor === color || undefined}
-                className="loom-color-swatch"
+                className="rtb-color-swatch"
                 style={{ backgroundColor: color }}
                 onMouseDown={(event) => { event.preventDefault(); pick(color); }}
               />
             ))}
           </div>
-          <div className="loom-color-footer">
+          <div className="rtb-color-footer">
             <button
               type="button"
               title="Black"
               data-active={currentColor === "#000000" || undefined}
-              className="loom-color-swatch"
+              className="rtb-color-swatch"
               style={{ backgroundColor: "#000000" }}
               onMouseDown={(event) => { event.preventDefault(); pick("#000000"); }}
             />
             <button
               type="button"
               title="Remove color"
-              className="loom-color-remove"
+              className="rtb-color-remove"
               onMouseDown={(event) => { event.preventDefault(); pick(null); }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -616,7 +630,7 @@ export function ColorDropdown({
             <button
               type="button"
               title="Custom color"
-              className="loom-color-palette-btn"
+              className="rtb-color-palette-btn"
               onMouseDown={(event) => { event.preventDefault(); setShowModal(true); setOpen(false); }}
             >
               <Palette size={14} />
@@ -639,10 +653,10 @@ export function ColorDropdown({
 function ListPreview({ listStyle, ordered }: { listStyle: string; ordered: boolean }) {
   const Tag = ordered ? "ol" : "ul";
   return (
-    <Tag className="loom-lp" style={{ listStyleType: listStyle }}>
-      <li className="loom-lp-item" />
-      <li className="loom-lp-item" />
-      <li className="loom-lp-item" />
+    <Tag className="rtb-lp" style={{ listStyleType: listStyle }}>
+      <li className="rtb-lp-item" />
+      <li className="rtb-lp-item" />
+      <li className="rtb-lp-item" />
     </Tag>
   );
 }
@@ -696,7 +710,7 @@ export function ListStyleDropdown({
 
   return (
     <>
-      <div ref={wrapRef} className="loom-list-picker-wrap">
+      <div ref={wrapRef} className="rtb-list-picker-wrap">
         <ToolbarButton
           title={type === "bullet" ? "Bullet list" : "Ordered list"}
           active={isActive}
@@ -707,7 +721,7 @@ export function ListStyleDropdown({
         >
           {type === "bullet" ? <List size={14} /> : <ListOrdered size={14} />}
         </ToolbarButton>
-        <ToolbarButton title="List style" onMouseDown={openPicker} className="loom-list-chevron">
+        <ToolbarButton title="List style" onMouseDown={openPicker} className="rtb-list-chevron">
           <ChevronDown size={9} />
         </ToolbarButton>
       </div>
@@ -715,7 +729,7 @@ export function ListStyleDropdown({
       {open && dropPos && (
         <div
           ref={dropRef}
-          className={`loom-list-picker${type === "ordered" ? " loom-list-picker--ordered" : ""}`}
+          className={`rtb-list-picker${type === "ordered" ? " rtb-list-picker--ordered" : ""}`}
           style={{ position: "fixed", top: dropPos.top, left: dropPos.left }}
         >
           {styles.map((style) => (
@@ -729,7 +743,7 @@ export function ListStyleDropdown({
                 runCommand(view, setListStyle(listType, otherType, style));
                 setOpen(false);
               }}
-              className="loom-list-picker-option"
+              className="rtb-list-picker-option"
             >
               <ListPreview listStyle={style} ordered={type === "ordered"} />
             </button>
@@ -785,7 +799,7 @@ export function TableInsertPicker({ view, schema }: { view: EditorView; schema: 
         type="button"
         title="Insert table"
         onMouseDown={openPicker}
-        className="loom-toolbar-btn"
+        className="rtb-toolbar-btn"
       >
         <Table2 size={14} />
       </button>
@@ -793,23 +807,23 @@ export function TableInsertPicker({ view, schema }: { view: EditorView; schema: 
       {open && dropPos && (
         <div
           ref={dropRef}
-          className="loom-tbl-picker"
+          className="rtb-tbl-picker"
           style={{ position: "fixed", top: dropPos.top, left: dropPos.left }}
           onMouseLeave={() => setHovered(null)}
         >
-          <div className="loom-tbl-grid">
+          <div className="rtb-tbl-grid">
             {Array.from({ length: GRID_ROWS }, (_, rowIndex) =>
               Array.from({ length: GRID_COLS }, (_, colIndex) => (
                 <div
                   key={`${rowIndex}-${colIndex}`}
-                  className={`loom-tbl-cell${hovered && rowIndex <= hovered.r && colIndex <= hovered.c ? " loom-tbl-cell--on" : ""}`}
+                  className={`rtb-tbl-cell${hovered && rowIndex <= hovered.r && colIndex <= hovered.c ? " rtb-tbl-cell--on" : ""}`}
                   onMouseEnter={() => setHovered({ r: rowIndex, c: colIndex })}
                   onMouseDown={(event) => { event.preventDefault(); insertTable(rowIndex + 1, colIndex + 1); }}
                 />
               ))
             )}
           </div>
-          <div className="loom-tbl-label">{label}</div>
+          <div className="rtb-tbl-label">{label}</div>
         </div>
       )}
     </>

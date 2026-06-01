@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { useIsomorphicLayoutEffect } from "../../hooks/use-isomorphic-layout-effect";
 import { EditorState } from "prosemirror-state";
 import { type DirectEditorProps, EditorView } from "prosemirror-view";
@@ -17,6 +18,7 @@ interface StructuredEditorRenderProps {
   value: string;
   onChange?: (content: string) => void;
   onSave?: () => void | Promise<void>;
+  onDiscard?: () => void | Promise<void>;
   placeholder?: string;
   className?: string;
   classNames?: EditorClassNames;
@@ -31,10 +33,21 @@ interface StructuredEditorRenderProps {
 import { createDefaultEditorExtensions } from "../../extensions";
 import type { Command } from "prosemirror-state";
 
+class OverlayErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err: unknown) { console.warn("[rtb] Overlay render failed:", err); }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
+
 export function StructuredEditor({
   value,
   onChange,
   onSave,
+  onDiscard,
   className,
   classNames,
   height = 400,
@@ -52,17 +65,23 @@ export function StructuredEditor({
   onChangeRef.current = onChange;
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
+  const onDiscardRef = useRef(onDiscard);
+  onDiscardRef.current = onDiscard;
   const tableHScrollAllowedRef = useRef(false);
 
   const [, setTick] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSourceMode, setIsSourceMode] = useState(false);
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((f) => !f), []);
+  const toggleSourceMode = useCallback(() => setIsSourceMode((f) => !f), []);
+
   const resolvedExtensions = useMemo<EditorExtension[]>(
     () => (extensions && extensions.length > 0 ? extensions : createDefaultEditorExtensions()),
     [extensions]
   );
   const schema = useMemo(() => createEditorSchema(resolvedExtensions), [resolvedExtensions]);
+
   const extensionContext = useMemo<EditorExtensionRuntimeContext>(
     () => ({
       documentId: sessionState.documentId,
@@ -73,9 +92,23 @@ export function StructuredEditor({
   );
   const plugins = useMemo(
     () => [
-      ...resolvedExtensions.flatMap((extension) => extension.getPlugins?.(extensionContext) ?? []),
+      ...resolvedExtensions.flatMap((extension) => {
+        try {
+          return extension.getPlugins?.(extensionContext) ?? [];
+        } catch (err) {
+          console.warn(`[rtb] Extension "${extension.id}" getPlugins failed:`, err);
+          return [];
+        }
+      }),
       ...resolvedExtensions
-        .map((extension) => extension.getKeymap?.(extensionContext))
+        .map((extension) => {
+          try {
+            return extension.getKeymap?.(extensionContext);
+          } catch (err) {
+            console.warn(`[rtb] Extension "${extension.id}" getKeymap failed:`, err);
+            return undefined;
+          }
+        })
         .filter((bindings): bindings is Record<string, Command> => Boolean(bindings))
         .map((bindings) => keymap(bindings)),
     ],
@@ -84,19 +117,35 @@ export function StructuredEditor({
   const nodeViews = useMemo(
     () =>
       resolvedExtensions.reduce<NonNullable<DirectEditorProps["nodeViews"]>>((acc, extension) => {
-        return {
-          ...acc,
-          ...extension.getNodeViews?.(extensionContext),
-        };
+        try {
+          return { ...acc, ...extension.getNodeViews?.(extensionContext) };
+        } catch (err) {
+          console.warn(`[rtb] Extension "${extension.id}" getNodeViews failed:`, err);
+          return acc;
+        }
       }, {}),
     [extensionContext, resolvedExtensions]
   );
   const toolbarItems = useMemo(
-    () => resolvedExtensions.flatMap((extension) => extension.getToolbarItems?.(extensionContext) ?? []),
+    () => resolvedExtensions.flatMap((extension) => {
+      try {
+        return extension.getToolbarItems?.(extensionContext) ?? [];
+      } catch (err) {
+        console.warn(`[rtb] Extension "${extension.id}" getToolbarItems failed:`, err);
+        return [];
+      }
+    }),
     [extensionContext, resolvedExtensions]
   );
   const overlays = useMemo(
-    () => resolvedExtensions.flatMap((extension) => extension.getOverlays?.(extensionContext) ?? []),
+    () => resolvedExtensions.flatMap((extension) => {
+      try {
+        return extension.getOverlays?.(extensionContext) ?? [];
+      } catch (err) {
+        console.warn(`[rtb] Extension "${extension.id}" getOverlays failed:`, err);
+        return [];
+      }
+    }),
     [extensionContext, resolvedExtensions]
   );
 
@@ -152,15 +201,19 @@ export function StructuredEditor({
         return false;
       },
       dispatchTransaction(tr) {
-        const next = view.state.apply(tr);
-        view.updateState(next);
-        if (tr.docChanged || tr.selectionSet) {
-          setTick((t) => t + 1);
-          if (tr.docChanged) {
-            const html = serializeDocToHtml(next.doc, schema);
-            lastEmittedRef.current = html;
-            onChangeRef.current?.(html);
+        try {
+          const next = view.state.apply(tr);
+          view.updateState(next);
+          if (tr.docChanged || tr.selectionSet) {
+            setTick((t) => t + 1);
+            if (tr.docChanged) {
+              const html = serializeDocToHtml(next.doc, schema);
+              lastEmittedRef.current = html;
+              onChangeRef.current?.(html);
+            }
           }
+        } catch (err) {
+          console.warn("[rtb] dispatchTransaction failed:", err);
         }
       },
     });
@@ -191,7 +244,7 @@ export function StructuredEditor({
   const currentState = viewRef.current?.state ?? null;
 
   return (
-    <div className={cn("loom-pm", darkMode && "loom-pm-dark", isFullscreen && "loom-pm--fullscreen", className, classNames?.root)}>
+    <div className={cn("rtb-pm", darkMode && "rtb-pm-dark", isFullscreen && "rtb-pm--fullscreen", className, classNames?.root)}>
       {viewRef.current && currentState && (
         <ProseMirrorToolbar
           view={viewRef.current}
@@ -201,23 +254,41 @@ export function StructuredEditor({
           className={classNames?.toolbar}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          isSourceMode={isSourceMode}
+          onToggleSourceMode={toggleSourceMode}
         />
       )}
+
       <div
         ref={mountRef}
-        className={cn(classNames?.content, isFullscreen && "loom-pm-content--fullscreen")}
+        className={cn(classNames?.content, isFullscreen && "rtb-pm-content--fullscreen")}
         style={isFullscreen ? undefined : { minHeight: `${height}px` }}
       />
-      <div className={`loom-status-bar${saveStatus && saveStatus !== "idle" ? ` loom-status-bar--${saveStatus}` : ""}`}>
-        {saveStatus === "saving" && <><span className="loom-spinner" />Saving…</>}
+
+      <div className={`rtb-status-bar${saveStatus && saveStatus !== "idle" ? ` rtb-status-bar--${saveStatus}` : ""}`}>
+        {saveStatus === "saving" && <><span className="rtb-spinner" />Saving…</>}
         {saveStatus === "saved" && "Saved"}
         {saveStatus === "error" && "Save failed"}
-        {(!saveStatus || saveStatus === "idle") && sessionState?.hasUnsavedChanges && onSaveRef.current && (
-          <><span className="loom-status-dot" />Unsaved changes</>
+        {(!saveStatus || saveStatus === "idle") && sessionState?.hasUnsavedChanges && (onSaveRef.current || onDiscardRef.current) && (
+          <>
+            <span className="rtb-status-dot" />
+            Unsaved changes
+            {onSaveRef.current && (
+              <button type="button" className="rtb-status-action-btn" onMouseDown={(e) => { e.preventDefault(); void onSaveRef.current?.(); }}>
+                Save
+              </button>
+            )}
+            {onDiscardRef.current && (
+              <button type="button" className="rtb-status-action-btn rtb-status-action-btn--discard" onMouseDown={(e) => { e.preventDefault(); void onDiscardRef.current?.(); }}>
+                Discard
+              </button>
+            )}
+          </>
         )}
       </div>
+
       {viewRef.current && currentState && overlays.map((overlay) => (
-        <div key={overlay.id} style={{ display: "contents" }}>
+        <OverlayErrorBoundary key={overlay.id}>
           {overlay.render({
             view: viewRef.current!,
             state: currentState,
@@ -225,8 +296,10 @@ export function StructuredEditor({
             darkMode,
             isFullscreen,
             onToggleFullscreen: toggleFullscreen,
+            isSourceMode,
+            onToggleSourceMode: toggleSourceMode,
           })}
-        </div>
+        </OverlayErrorBoundary>
       ))}
     </div>
   );

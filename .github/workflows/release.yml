@@ -1,0 +1,100 @@
+name: Release package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver bump to publish
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      npm_tag:
+        description: npm dist-tag
+        required: true
+        default: latest
+        type: choice
+        options:
+          - latest
+          - next
+          - beta
+          - alpha
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify npm authentication
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm exec playwright install chromium --with-deps
+      - run: pnpm test:e2e
+
+      - name: Clean generated test artifacts
+        run: |
+          git restore test-results || true
+          git clean -fdX test-results playwright-report || true
+          git status --short
+          test -z "$(git status --porcelain)"
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump package version
+        id: version
+        run: |
+          npm version "${{ inputs.version }}" -m "chore(release): v%s"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - run: pnpm build:lib
+
+      - name: Generate npm package
+        run: npm pack --ignore-scripts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: react-textblock-editor-v${{ steps.version.outputs.version }}
+          path: "*.tgz"
+          retention-days: 30
+
+      - name: Push release commit and tag
+        run: git push origin HEAD:main --follow-tags
+
+      - name: Publish package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag "${{ inputs.npm_tag }}" --provenance

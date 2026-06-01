@@ -12,7 +12,7 @@ export function injectTheme(css: string): () => void {
     };
   }
   const el = document.createElement("style");
-  el.setAttribute("data-loom-theme", "");
+  el.setAttribute("data-rtb-theme", "");
   el.textContent = css;
   document.head.appendChild(el);
   registry.set(css, { el, count: 1 });

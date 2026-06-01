@@ -1,532 +1,392 @@
-# `@rave/rich-text-editor`
+# react-textblock-editor
 
-ProseMirror rich text editor for React. Stores and outputs sanitized HTML. Optional local-first persistence via Automerge + IndexedDB (localStorage fallback). SSR-safe.
+ProseMirror rich text editor for React. Outputs sanitized HTML and includes optional draft persistence, tables, image upload, and HTML source editing.
 
 ## Install
 
 ```bash
-pnpm add @rave/rich-text-editor
+pnpm add react-textblock-editor
 # or
-npm install @rave/rich-text-editor
+npm install react-textblock-editor
 ```
 
-Import the stylesheet once at your app root:
+Import the stylesheet once at your app entry:
 
 ```ts
-import "@rave/rich-text-editor/style.css";
+import "react-textblock-editor/style.css";
 ```
 
 ## Quick start
 
-```ts
-// app entry point — import once
-import "@rave/rich-text-editor/style.css";
-```
-
 ```tsx
 import { useState } from "react";
-import { RichTextEditorField, RichTextRenderer } from "@rave/rich-text-editor";
+import { RichTextEditorField } from "react-textblock-editor";
 
 function Article() {
   const [html, setHtml] = useState("<p>Hello world</p>");
 
   return (
-    <>
-      <RichTextEditorField
-        value={html}
-        onSave={async (next) => {
-          await api.save(next);
-          setHtml(next);
-        }}
-        documentId="article:home"
-      />
-
-      {/* read-only display */}
-      <RichTextRenderer content={html} />
-    </>
+    <RichTextEditorField
+      value={html}
+      onSave={async (next) => {
+        await api.save(next);
+        setHtml(next);
+      }}
+    />
   );
 }
 ```
 
----
+## Key props
 
-## Components
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | `string` | — | Saved HTML content |
+| `onSave` | `(html: string) => void \| Promise<void>` | — | Called on explicit save (Ctrl+S or save button) |
+| `onDiscard` | `(html: string) => void \| Promise<void>` | — | Called when user discards unsaved changes. Also shows a Discard button in the status bar |
+| `onChange` | `(html: string) => void` | — | Called on every keystroke |
+| `onLocalChange` | `(html: string) => void` | — | Alias for `onChange` |
+| `onSaveStatusChange` | `(status: SaveStatus) => void` | — | Fires when save status changes (`idle`, `saving`, `saved`, `error`) |
+| `onSessionStateChange` | `(state: DocumentSessionState) => void` | — | Fires when session state changes (draft, unsaved, persistence info) |
+| `extensions` | `EditorExtension[]` | — | Optional capability extensions |
+| `persist` | `boolean` | `false` | Save draft to localStorage, cleared on successful save |
+| `documentId` | `string` | `"default"` | Scopes the localStorage draft key when `persist` is true |
+| `placeholder` | `string` | `"Start writing…"` | Placeholder for empty editor |
+| `height` | `number` | `400` | Min height in px |
+| `darkMode` | `boolean` | `false` | Dark theme |
+| `readOnly` | `boolean` | `false` | Disable editing |
+| `lazyMount` | `boolean` | `true` | Mount editor on first click (better page load) |
+| `emptyLabel` | `string` | `"Click to add content…"` | Trigger label when `value` is empty |
+| `filledLabel` | `string` | `"Click to edit…"` | Trigger label when `value` has content |
+| `theme` | `string` | — | CSS string for runtime per-instance theming |
+| `className` | `string` | — | Class on the root element |
+| `classNames` | `EditorClassNames` | — | Fine-grained class overrides per editor region |
 
-### `RichTextEditorField`
+## Read-only display
 
-Full editing surface with draft buffering, save/discard flow, and optional local-first persistence.
+```tsx
+import { RichTextRenderer } from "react-textblock-editor";
+
+<RichTextRenderer content={html} />
+```
+
+SSR-safe. Sanitizes content before rendering.
+
+## Save & discard
+
+When `onSave` is provided, a **Save** button appears in the editor's status bar whenever there are unsaved changes. When `onDiscard` is also provided, a **Discard** button appears alongside it.
 
 ```tsx
 <RichTextEditorField
   value={html}
-  onSave={async (html) => { ... }}
-  documentId="article:home"
-/>
-```
-
-#### Props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `value` | `string` | — | Saved HTML. Updated by your state after `onSave`. |
-| `onSave` | `(html: string) => void \| Promise<void>` | — | Called when the user explicitly saves. Show a save button by providing this. |
-| `onDiscard` | `(html: string) => void \| Promise<void>` | — | Called on discard. Shows a discard button when provided. |
-| `onLocalChange` | `(html: string) => void` | — | Called on every keystroke. Use for autosave previews. |
-| `onSessionStateChange` | `(state: DocumentSessionState) => void` | — | Fires when session metadata changes (unsaved state, draft, flags). |
-| `onImageUpload` | `(file: File) => Promise<string>` | — | Handle image upload. Return the public URL. |
-| `documentId` | `string` | `"default"` | Stable ID for this document. Scopes local-first storage. |
-| `extensions` | `EditorExtension[]` | `[]` | Capability extensions (local-first, future AI, etc). |
-| `autoSave` | `boolean \| { enabled?: boolean; debounceMs?: number }` | `false` | Auto-calls `onSave` after the debounce period (default 800 ms). |
-| `persistence` | `PersistenceConfig` | `{ kind: 'none' }` | Legacy compat. Use `extensions` instead. |
-| `featureFlags` | `EditorFeatureFlags` | — | Explicitly set `offline`, `comments`, `collaboration`, `ai`, `trackedChanges`. |
-| `placeholder` | `string` | `"Start writing…"` | Placeholder shown in empty editor. |
-| `height` | `number` | `400` | Min height of the editor in px. |
-| `darkMode` | `boolean` | `false` | Activate dark theme (adds `.loom-pm-dark` class). |
-| `readOnly` | `boolean` | `false` | Disable all editing. |
-| `lazyMount` | `boolean` | `true` | Only mount the editor on first click (good default for page performance). |
-| `emptyLabel` | `string` | `"Click to add content…"` | Label shown in lazy preview when content is empty. |
-| `filledLabel` | `string` | `"Click to edit…"` | Label shown in lazy preview when content exists. |
-| `theme` | `string` | — | CSS string injected at runtime. Use for per-component theming without a CSS file import. See [Styling & theming](#styling--theming). |
-| `className` | `string` | — | Extra class on the editor root element. |
-| `classNames` | `EditorClassNames` | — | Per-region class overrides: `root`, `toolbar`, `content`, `actionBar`. |
-
----
-
-### `RichTextRenderer`
-
-Read-only renderer. SSR-safe. Sanitizes content before rendering.
-
-```tsx
-<RichTextRenderer content={html} />
-<RichTextRenderer content={html} className="prose" />
-```
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `content` | `string` | HTML string from the editor. |
-| `className` | `string` | Extra class on the wrapper `div`. |
-
----
-
-## Styling & theming
-
-### Stylesheet import
-
-Import the stylesheet once at your app entry point. This includes the default light theme, all editor UI styles, and the renderer styles.
-
-```ts
-import "@rave/rich-text-editor/style.css";
-```
-
-That single line is all most projects need.
-
----
-
-### Design tokens
-
-Every visual property is a CSS custom property (`--loom-*`) defined on `.loom-pm`. Override any token on that class — or any parent — to customise the look without touching component code.
-
-| Token | Default | Controls |
-|---|---|---|
-| `--loom-accent` | `#3b82f6` | Focus rings, active buttons, save button |
-| `--loom-bg` | `#ffffff` | Editor background |
-| `--loom-text` | `#111827` | Editor text colour |
-| `--loom-border` | `#e2e8f0` | Outer border |
-| `--loom-shadow` | `0 1px 3px …` | Outer drop-shadow |
-| `--loom-radius` | `.375rem` | Corner radius (outer container) |
-| `--loom-toolbar-bg` | `#f8fafc` | Toolbar background |
-| `--loom-toolbar-border` | `#e2e8f0` | Toolbar bottom border |
-| `--loom-btn-color` | `#64748b` | Toolbar button icon colour |
-| `--loom-btn-hover-bg` | `#f1f5f9` | Button hover background |
-| `--loom-btn-active-bg` | `#e2e8f0` | Button active/pressed background |
-| `--loom-sep-color` | `#e2e8f0` | Toolbar separator colour |
-| `--loom-popup-bg` | `#ffffff` | Dropdown / picker background |
-| `--loom-popup-border` | `#e2e8f0` | Dropdown border |
-| `--loom-popup-shadow` | `0 4px 6px …` | Dropdown shadow |
-| `--loom-danger-color` | `#ef4444` | Destructive action icons |
-
-**Example — brand accent + flat style:**
-
-```css
-/* your-app.css */
-.loom-pm {
-  --loom-accent: #7c3aed;
-  --loom-radius: 0;
-  --loom-shadow: none;
-  --loom-toolbar-bg: #ffffff;
-}
-```
-
----
-
-### Pre-built themes
-
-Three themes are included. Each is a CSS file that redefines the `--loom-*` tokens.
-
-#### Import a theme file (static, build-time)
-
-```ts
-import "@rave/rich-text-editor/style.css";         // core + default theme
-import "@rave/rich-text-editor/themes/dark.css";    // override to dark
-// or
-import "@rave/rich-text-editor/themes/minimal.css"; // override to minimal
-```
-
-| Theme file | Description |
-|---|---|
-| *(included in `style.css`)* | Default light theme |
-| `themes/dark.css` | Dark surface, muted borders, blue accent |
-| `themes/minimal.css` | Flat, no shadows, reduced chrome |
-
-#### Use the `theme` prop (runtime, per-component)
-
-Import a theme string and pass it to the component. No CSS file import required — useful in Next.js App Router, component libraries, or anywhere you want per-instance theming.
-
-```tsx
-import { darkTheme, minimalTheme } from "@rave/rich-text-editor";
-
-// dark editor
-<RichTextEditorField theme={darkTheme} ... />
-
-// minimal editor
-<RichTextEditorField theme={minimalTheme} ... />
-```
-
-The `theme` prop is reference-counted: the style tag is shared across all instances using the same string and removed when the last instance unmounts.
-
-#### The `darkMode` prop
-
-A convenience shorthand that adds the `.loom-pm-dark` class, which activates the dark token set from `themes/dark.css` (already included in `style.css`).
-
-```tsx
-<RichTextEditorField darkMode={true} ... />
-```
-
----
-
-### Custom theme
-
-#### Option 1 — CSS variables (quickest)
-
-Override tokens directly in your stylesheet or in a `<style>` tag:
-
-```css
-.loom-pm {
-  --loom-accent: #10b981;      /* emerald */
-  --loom-radius: 0;             /* sharp corners */
-  --loom-shadow: none;
-  --loom-toolbar-bg: #f0fdf4;
-}
-```
-
-#### Option 2 — Theme string (runtime)
-
-Build a CSS string and pass it as the `theme` prop:
-
-```ts
-const emeraldTheme = `
-  .loom-pm {
-    --loom-accent: #10b981;
-    --loom-toolbar-bg: #f0fdf4;
-    --loom-btn-active-bg: #d1fae5;
-  }
-`;
-
-<RichTextEditorField theme={emeraldTheme} ... />
-```
-
-#### Option 3 — Extend a preset
-
-Compose on top of an existing theme string:
-
-```ts
-import { darkTheme } from "@rave/rich-text-editor";
-
-const purpleDark = darkTheme + `
-  .loom-pm { --loom-accent: #a855f7; }
-`;
-
-<RichTextEditorField theme={purpleDark} ... />
-```
-
----
-
-### Scoped overrides with `className`
-
-For per-instance overrides without a new theme string, use the `className` prop and target it in CSS:
-
-```tsx
-<RichTextEditorField className="editor-compact" ... />
-```
-
-```css
-.editor-compact.loom-pm {
-  --loom-accent: #f59e0b;
-  --loom-radius: .125rem;
-}
-.editor-compact .loom-toolbar {
-  padding: .125rem .375rem;
-}
-```
-
-For finer control, `classNames` lets you target sub-regions:
-
-```tsx
-<RichTextEditorField
-  classNames={{
-    root: "my-editor",
-    toolbar: "my-editor-toolbar",
-    content: "my-editor-content",
+  onSave={async (next) => {
+    await api.save(next);
+    setHtml(next);
+  }}
+  onDiscard={(reverted) => {
+    // The editor has already reset internally to the last saved value.
+    // Sync any external state that mirrors the draft here.
+    setDraftHtml(reverted);
   }}
 />
 ```
 
----
+The status bar progresses through these states:
 
-### Renderer theming
+| State | Shown when |
+|---|---|
+| _(empty)_ | No unsaved changes |
+| `● Unsaved changes [Save] [Discard]` | User has typed since last save |
+| `⟳ Saving…` | `onSave` promise is pending |
+| `Saved` | `onSave` resolved (fades after ~2 s) |
+| `Save failed` | `onSave` threw / rejected |
 
-`RichTextRenderer` uses a separate `.loom-renderer` class with its own token set. Override them the same way:
+Ctrl+S (or Cmd+S on Mac) also triggers `onSave` directly without clicking the button.
 
-```css
-.loom-renderer {
-  --loom-r-text: #1a1a1a;
-  --loom-r-link: #7c3aed;
-  --loom-r-h1-size: 2rem;
-  --loom-r-table-header-bg: #1e1b4b;
-}
-```
+## Draft persistence
 
-See `src/lib/styles/rich-text-renderer.css` for the full token list.
-
----
-
-## Local-first persistence
-
-Keeps a local copy of the document so edits survive page reload without a server round-trip. Uses Automerge for delta tracking on top of IndexedDB (falls back to localStorage when IndexedDB is unavailable).
+Pass `persist` to save the draft to localStorage on every keystroke. Clears automatically when `onSave` succeeds.
 
 ```tsx
-import {
-  RichTextEditorField,
-  createLocalFirstExtension,
-} from "@rave/rich-text-editor";
-
 <RichTextEditorField
   value={html}
-  onSave={async (next) => { setSavedHtml(next); }}
-  documentId="article:home"
-  extensions={[
-    createLocalFirstExtension({ documentId: "article:home" }),
-  ]}
+  documentId="article:1"
+  persist
+  onSave={async (next) => {
+    await api.save(next);
+    setHtml(next);
+  }}
 />
 ```
 
-`documentId` scopes the storage. Use the same ID on the field and the extension.
+`documentId` scopes the key — use a stable unique ID per document.
 
-#### `createLocalFirstExtension(options)`
+## Extensions
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `documentId` | `string` | Required. Storage key for this document. |
-| `storageKey` | `string` | Optional. Override the session draft key. |
+Extensions add optional editor capabilities. If you pass the `extensions` prop, include the default extensions when you still want the built-in formatting toolbar.
 
-The extension automatically:
-- sets the `offline` feature flag
-- hydrates the editor from local storage on mount
-- writes local edits back to storage on every change
-
-Storage priority: **IndexedDB → localStorage**. Selection happens lazily on first browser-side use (SSR produces no-ops).
-
----
-
-## Composing extensions
-
-`composeExtensions(...)` accepts extensions or falsy values — useful for conditional capabilities.
+### Image upload
 
 ```tsx
 import {
   composeExtensions,
-  createLocalFirstExtension,
-} from "@rave/rich-text-editor";
-
-const extensions = composeExtensions(
-  enableLocalFirst && createLocalFirstExtension({ documentId: "article:home" }),
-  enableAi      && createAiExtension({ documentId: "article:home" }), // future
-);
+  createDefaultEditorExtensions,
+  createImageExtension,
+} from "react-textblock-editor";
 
 <RichTextEditorField
-  value={html}
-  documentId="article:home"
-  extensions={extensions}
+  extensions={composeExtensions(
+    ...createDefaultEditorExtensions(),
+    createImageExtension({
+      onUpload: async (file) => {
+        const url = await myStorage.upload(file);
+        return url;
+      },
+    }),
+  )}
 />
 ```
 
----
-
-## Writing a custom extension
-
-An extension can do any combination of four things:
-
-```ts
-import type { EditorExtension } from "@rave/rich-text-editor";
-
-const myExtension: EditorExtension = {
-  // Required unique ID
-  id: "my-extension",
-
-  // Contribute feature flags
-  getFeatureFlags: (context) => ({ offline: true }),
-
-  // Configure session draft persistence (sessionStorage key, enabled flag)
-  getSessionPersistence: (context) => ({
-    enabled: true,
-    storageKey: `my-draft:${context.documentId}`,
-  }),
-
-  // Provide initial document value (async ok — good for remote fetch)
-  getInitialValue: async (context) => {
-    const saved = await myApi.load(context.documentId);
-    return saved ?? context.value;
-  },
-
-  // React to local content changes
-  onLocalChange: async (html, context) => {
-    await myApi.autosave(context.documentId, html);
-  },
-};
-```
-
-All methods are optional. The `context` argument provides `documentId` and the resolved `featureFlags`.
-
----
-
-## Session state
-
-`onSessionStateChange` fires whenever session metadata changes:
+### Tables
 
 ```tsx
+import {
+  composeExtensions,
+  createDefaultEditorExtensions,
+  createTablesExtension,
+} from "react-textblock-editor";
+
 <RichTextEditorField
-  onSessionStateChange={(state) => {
-    console.log(state.hasUnsavedChanges);
-    console.log(state.hasPersistedDraft);
-  }}
+  extensions={composeExtensions(
+    ...createDefaultEditorExtensions(),
+    createTablesExtension(),
+  )}
 />
 ```
 
-#### `DocumentSessionState`
+### HTML source editing
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `documentId` | `string` | Resolved document ID. |
-| `savedContent` | `string` | Last explicitly saved HTML. |
-| `draftContent` | `string` | Current local draft HTML. |
-| `hasUnsavedChanges` | `boolean` | Draft differs from saved content. |
-| `hasPersistedDraft` | `boolean` | A draft is stored in sessionStorage. |
-| `persistenceKey` | `string \| null` | SessionStorage key in use. |
-| `featureFlags` | `ResolvedEditorFeatureFlags` | Active resolved flags. |
+```tsx
+import {
+  composeExtensions,
+  createDefaultEditorExtensions,
+  createHtmlSourceExtension,
+} from "react-textblock-editor";
 
----
+<RichTextEditorField
+  extensions={composeExtensions(
+    ...createDefaultEditorExtensions(),
+    createHtmlSourceExtension(),
+  )}
+/>
+```
 
-## Feature flags
+### Compose extensions
 
-Flags let extensions and UI signal which capabilities are active. The editor does not gate functionality on these — they are metadata for your app to read.
+```tsx
+import {
+  composeExtensions,
+  createDefaultEditorExtensions,
+  createImageExtension,
+  createTablesExtension,
+} from "react-textblock-editor";
 
-```ts
-interface EditorFeatureFlags {
-  offline?: boolean;
-  comments?: boolean;
-  trackedChanges?: boolean;
-  collaboration?: boolean;
-  ai?: boolean;
+const extensions = composeExtensions(
+  ...createDefaultEditorExtensions(),
+  isImageEnabled && createImageExtension({ onUpload }),
+  createTablesExtension(),
+);
+```
+
+`composeExtensions` filters out `false`, `null`, and `undefined`.
+
+## Styling
+
+### How it works
+
+The editor uses two CSS class namespaces:
+
+- `.rtb-pm` — editor shell (toolbar, editor area, status bar)
+- `.rtb-renderer` — read-only renderer (`RichTextRenderer`)
+
+Both are fully controlled by CSS custom properties. Override them in your own stylesheet — no need to modify the lib.
+
+### Editor tokens (`.rtb-pm`)
+
+```css
+.rtb-pm {
+  /* Surface */
+  --rtb-bg: #ffffff;
+  --rtb-text: #111827;
+  --rtb-border: #e2e8f0;
+  --rtb-shadow: 0 1px 3px 0 rgba(0,0,0,.1);
+  --rtb-radius: .375rem;
+  --rtb-accent: #3b82f6;       /* save indicators, focus rings */
+  --rtb-danger-color: #ef4444; /* save error */
+
+  /* Toolbar */
+  --rtb-toolbar-bg: #f8fafc;
+  --rtb-toolbar-border: #e2e8f0;
+
+  /* Buttons */
+  --rtb-btn-color: #64748b;
+  --rtb-btn-hover-bg: #f1f5f9;
+  --rtb-btn-hover-color: #1e293b;
+  --rtb-btn-active-bg: #e2e8f0;
+  --rtb-btn-active-color: #0f172a;
+
+  /* Separators / popups */
+  --rtb-sep-color: #e2e8f0;
+  --rtb-popup-bg: #ffffff;
+  --rtb-popup-border: #e2e8f0;
+  --rtb-popup-shadow: 0 4px 6px -1px rgba(0,0,0,.1);
 }
 ```
 
-`createLocalFirstExtension` sets `offline: true` automatically.
+### Renderer tokens (`.rtb-renderer`)
 
----
-
-## Low-level hook: `useDocumentSession`
-
-For custom editor surfaces that don't use `RichTextEditorField`:
-
-```ts
-import { useDocumentSession } from "@rave/rich-text-editor";
-
-const {
-  localContent,
-  hasUnsavedChanges,
-  handleLocalChange,
-  handleSave,
-  handleDiscard,
-  clearPersistedDraft,
-  sessionState,
-} = useDocumentSession({
-  value: serverHtml,
-  onSave: async (html) => { ... },
-  onDiscard: async (html) => { ... },
-  documentId: "article:home",
-  persistence: { enabled: true },
-  autoSave: { enabled: true, debounceMs: 1000 },
-});
+```css
+.rtb-renderer {
+  --rtb-r-font: ui-sans-serif, system-ui, sans-serif;
+  --rtb-r-font-size: 1rem;
+  --rtb-r-line-height: 1.6;
+  --rtb-r-text: #1f2937;
+  --rtb-r-heading-color: #111827;
+  --rtb-r-h1-size: 1.875rem;
+  --rtb-r-h2-size: 1.5rem;
+  --rtb-r-h3-size: 1.25rem;
+  --rtb-r-link: #2563eb;
+  --rtb-r-link-hover: #1d4ed8;
+  --rtb-r-blockquote-border: #e5e7eb;
+  --rtb-r-blockquote-color: #4b5563;
+  --rtb-r-code-bg: #f3f4f6;
+  --rtb-r-table-header-bg: #1f2937;
+  --rtb-r-table-header-color: #ffffff;
+  --rtb-r-table-cell-color: #374151;
+  --rtb-r-table-border: #e5e7eb;
+  --rtb-r-marker-color: #6b7280;  /* list bullet / number color */
+  --rtb-r-block-gap: 1rem;
+}
 ```
 
----
+### Override globally
 
-## Sanitization utilities
+Put this in your global CSS file (after importing the lib stylesheet):
 
-```ts
-import {
-  sanitizeRichTextContent,
-  isContentSafe,
-  getSanitizationReport,
-} from "@rave/rich-text-editor";
+```css
+/* your-app/globals.css */
+.rtb-pm {
+  --rtb-accent: #7c3aed;
+  --rtb-radius: 0;
+  --rtb-shadow: none;
+}
 
-// Sanitize arbitrary HTML string
-const clean = sanitizeRichTextContent(rawHtml);
-
-// Check if content is already clean
-const safe = isContentSafe(rawHtml);
-
-// Detailed report for debugging
-const report = getSanitizationReport(rawHtml);
+.rtb-renderer {
+  --rtb-r-heading-color: #053b9b;
+  --rtb-r-font: var(--font-poppins), sans-serif;
+  --rtb-r-font-size: 0.9375rem;
+}
 ```
 
-`sanitizeRichTextContent` uses DOMPurify on the client. On SSR it falls back to a regex-only pass (safe for rendering; full sanitization runs after hydration).
+### Override per-instance
 
----
+Pass `className` and scope your overrides to that class:
 
-## SSR
+```tsx
+<RichTextEditorField className="my-editor" ... />
+<RichTextRenderer className="my-renderer" content={html} />
+```
 
-Both `RichTextEditorField` and `RichTextRenderer` are SSR-safe:
+```css
+.my-editor.rtb-pm {
+  --rtb-accent: #7c3aed;
+  --rtb-toolbar-bg: #f5f3ff;
+}
 
-- `RichTextRenderer` — renders on server, no DOM dependencies.
-- `RichTextEditorField` — with `lazyMount: true` (default) renders a `<button>` placeholder on server. ProseMirror mounts client-side only.
-- Local-first storage — all IndexedDB/localStorage access is deferred to the first client-side call. No-ops on the server.
+.my-renderer.rtb-renderer {
+  --rtb-r-heading-color: #053b9b;
+  --rtb-r-font-size: 1.125rem;
+}
+```
 
-For Next.js App Router, no special wrapper is needed. For Pages Router or other SSR setups, the library works without `dynamic(() => ..., { ssr: false })`.
+### Override with a CSS theme file
 
----
+Built-in themes (`themes/dark.css`, `themes/minimal.css`) work by redefining the same vars. You can create your own the same way:
 
-## Dev commands
+```css
+/* your-app/rtb-brand-theme.css */
+.rtb-pm {
+  --rtb-accent: #7c3aed;
+  --rtb-btn-active-bg: #ede9fe;
+  --rtb-btn-active-color: #5b21b6;
+}
+.rtb-renderer {
+  --rtb-r-heading-color: #5b21b6;
+  --rtb-r-link: #7c3aed;
+}
+```
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start demo/playground at `http://localhost:5173` |
-| `pnpm typecheck` | Type check lib + demo |
-| `pnpm build:lib` | Build package → `dist/` |
-| `pnpm build:docs` | Build demo site → `site-dist/` |
-| `pnpm build` | Build both |
+```ts
+import "react-textblock-editor/style.css";
+import "./rtb-brand-theme.css"; // after — wins the cascade
+```
 
-## Publish
+### Override with the `theme` prop (inline, per-instance)
+
+For runtime theming (e.g. user-selected theme), pass a CSS string directly:
+
+```tsx
+import { darkTheme } from "react-textblock-editor";
+
+<RichTextEditorField theme={darkTheme} />
+
+// or a custom string
+<RichTextEditorField theme=".rtb-pm { --rtb-accent: #7c3aed; }" />
+```
+
+Built-in theme strings: `defaultTheme`, `darkTheme`, `minimalTheme`.
+
+### Built-in theme imports
+
+```ts
+import "react-textblock-editor/style.css";
+import "react-textblock-editor/themes/dark.css";    // dark mode
+import "react-textblock-editor/themes/minimal.css"; // borderless minimal
+```
+
+## Building a custom extension
+
+```ts
+import type { EditorExtension } from "react-textblock-editor";
+
+export function createMyExtension(): EditorExtension {
+  return {
+    id: "my-extension",
+    onLocalChange: async (html, ctx) => {
+      await myApi.autosave(ctx.documentId, html);
+    },
+  };
+}
+```
+
+See [docs/extension-guide.md](./docs/extension-guide.md) for the full API.
+
+## Dev
 
 ```bash
-pnpm typecheck && pnpm build:lib && pnpm publish --access public
+pnpm dev          # demo site at localhost:5173
+pnpm typecheck    # type-check
+pnpm test         # unit tests
+pnpm build:lib    # build → dist/
+pnpm pack:check   # inspect npm package contents
 ```
 
-## Deploy docs site
+## Release
 
-```
-Build command:    pnpm build:docs
-Output directory: site-dist
-```
+Publishing is handled by the `Release package` GitHub Actions workflow.
 
-Works on Vercel, Netlify, Cloudflare Pages.
+1. Add an `NPM_TOKEN` repository secret with publish access for this package.
+2. Run **Actions → Release package** from the `main` branch.
+3. Choose `patch`, `minor`, or `major`.
+
+The workflow runs typecheck, unit tests, e2e tests, bumps `package.json`, creates a git tag, builds the library, uploads the generated npm tarball, and publishes to npm.

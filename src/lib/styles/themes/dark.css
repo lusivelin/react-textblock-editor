@@ -1,25 +1,25 @@
 /* ── Dark theme ──────────────────────────────────────────────────────────────── */
 /* Option A — import this file globally to make all editors dark.                */
-/* Option B — use the darkMode prop which adds .loom-pm-dark class automatically. */
-.loom-pm-dark {
-  --loom-bg: #141618;
-  --loom-text: #e2e8f0;
-  --loom-border: rgba(255,255,255,.08);
-  --loom-shadow: 0 1px 3px 0 rgba(0,0,0,.4);
-  --loom-accent: #60a5fa;
-  --loom-toolbar-bg: rgba(255,255,255,.02);
-  --loom-toolbar-border: rgba(255,255,255,.08);
-  --loom-btn-color: rgba(255,255,255,.6);
-  --loom-btn-hover-bg: rgba(255,255,255,.1);
-  --loom-btn-hover-color: #ffffff;
-  --loom-btn-active-bg: rgba(255,255,255,.2);
-  --loom-btn-active-color: #ffffff;
-  --loom-actionbar-bg: #1a1b1e;
-  --loom-actionbar-border: rgba(255,255,255,.08);
-  --loom-sep-color: rgba(255,255,255,.1);
-  --loom-popup-bg: #1e2124;
-  --loom-popup-border: rgba(255,255,255,.1);
-  --loom-popup-shadow: 0 4px 6px -1px rgba(0,0,0,.4), 0 2px 4px -2px rgba(0,0,0,.3);
-  --loom-danger-color: #f87171;
-  --loom-danger-hover-bg: rgba(127,29,29,.4);
+/* Option B — use the darkMode prop which adds .rtb-pm-dark class automatically. */
+.rtb-pm-dark {
+  --rtb-bg: #141618;
+  --rtb-text: #e2e8f0;
+  --rtb-border: rgba(255,255,255,.08);
+  --rtb-shadow: 0 1px 3px 0 rgba(0,0,0,.4);
+  --rtb-accent: #60a5fa;
+  --rtb-toolbar-bg: rgba(255,255,255,.02);
+  --rtb-toolbar-border: rgba(255,255,255,.08);
+  --rtb-btn-color: rgba(255,255,255,.6);
+  --rtb-btn-hover-bg: rgba(255,255,255,.1);
+  --rtb-btn-hover-color: #ffffff;
+  --rtb-btn-active-bg: rgba(255,255,255,.2);
+  --rtb-btn-active-color: #ffffff;
+  --rtb-actionbar-bg: #1a1b1e;
+  --rtb-actionbar-border: rgba(255,255,255,.08);
+  --rtb-sep-color: rgba(255,255,255,.1);
+  --rtb-popup-bg: #1e2124;
+  --rtb-popup-border: rgba(255,255,255,.1);
+  --rtb-popup-shadow: 0 4px 6px -1px rgba(0,0,0,.4), 0 2px 4px -2px rgba(0,0,0,.3);
+  --rtb-danger-color: #f87171;
+  --rtb-danger-hover-bg: rgba(127,29,29,.4);
 }

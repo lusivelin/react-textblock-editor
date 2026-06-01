@@ -4,5 +4,6 @@
     "declaration": false,
     "noEmit": true
   },
-  "include": ["src/lib/**/*.ts", "src/lib/**/*.tsx", "vite.lib.config.ts"]
+  "include": ["src/lib/**/*.ts", "src/lib/**/*.tsx", "vite.lib.config.ts"],
+  "exclude": ["src/lib/**/__tests__/**"]
 }

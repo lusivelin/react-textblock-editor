@@ -1,11 +1,15 @@
 import OrderedMap from "orderedmap";
 import { Bold, Code, Italic, Maximize2, Minimize2, Quote, Redo, Strikethrough, Underline, Undo } from "lucide-react";
-import { baseKeymap, setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
+import { baseKeymap, chainCommands, setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
+import { keymap } from "prosemirror-keymap";
 import { addListNodes, liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list";
 import { nodes as basicNodes } from "prosemirror-schema-basic";
-import type { MarkSpec, NodeSpec } from "prosemirror-model";
+import { TextSelection } from "prosemirror-state";
+import type { Command } from "prosemirror-state";
+import type { MarkSpec, NodeSpec, NodeType } from "prosemirror-model";
 import type { EditorExtension, EditorToolbarItemProps } from "@lib/core/editor-extension";
+import { createHtmlSourceExtension } from "../html-source";
 import {
   ColorDropdown,
   isBlockActive,
@@ -17,6 +21,47 @@ import {
 } from "@lib/components/prosemirror/toolbar";
 
 const listNodes = addListNodes(OrderedMap.from(basicNodes), "block+", "block");
+
+function exitEmptyListItem(listItemType: NodeType): Command {
+  return (state, dispatch) => {
+    const { $from, empty } = state.selection;
+    if (!empty) return false;
+
+    let listItemDepth = -1;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type === listItemType) { listItemDepth = d; break; }
+    }
+    if (listItemDepth === -1) return false;
+    if ($from.node(listItemDepth).textContent !== "") return false;
+
+    const listDepth = listItemDepth - 1;
+    const listNode = $from.node(listDepth);
+    const para = state.schema.nodes.paragraph.create();
+
+    if (!dispatch) return true;
+
+    const listStart = $from.before(listDepth);
+    const listEnd = $from.after(listDepth);
+    const itemStart = $from.before(listItemDepth);
+    const itemEnd = $from.after(listItemDepth);
+
+    let tr = state.tr;
+
+    if (listNode.childCount === 1) {
+      tr = tr.replaceWith(listStart, listEnd, para);
+      const sel = TextSelection.near(tr.doc.resolve(listStart + 1));
+      dispatch(tr.setSelection(sel).scrollIntoView());
+    } else {
+      tr = tr.delete(itemStart, itemEnd);
+      const newListEnd = listEnd - (itemEnd - itemStart);
+      tr = tr.insert(newListEnd, para);
+      const sel = TextSelection.near(tr.doc.resolve(newListEnd + 1));
+      dispatch(tr.setSelection(sel).scrollIntoView());
+    }
+
+    return true;
+  };
+}
 
 const bulletListSpec: NodeSpec = {
   ...listNodes.get("bullet_list"),
@@ -122,20 +167,23 @@ export function createDefaultFormattingExtension(): EditorExtension {
         } satisfies MarkSpec,
       },
     }),
-    getPlugins: () => [history()],
-    getKeymap: ({ schema }) => {
+    getPlugins: ({ schema }) => {
       const listItem = schema.nodes.list_item;
-      return {
-        "Mod-z": undo,
-        "Mod-Shift-z": redo,
-        "Mod-y": redo,
-        ...(listItem ? {
-          Enter: splitListItem(listItem),
+      const markKeys: Record<string, Command> = {};
+      if (schema.marks.strong) markKeys["Mod-b"] = toggleMark(schema.marks.strong);
+      if (schema.marks.em) markKeys["Mod-i"] = toggleMark(schema.marks.em);
+      if (schema.marks.underline) markKeys["Mod-u"] = toggleMark(schema.marks.underline);
+      return [
+        history(),
+        keymap({ "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo }),
+        keymap(markKeys),
+        ...(listItem ? [keymap({
+          Enter: chainCommands(exitEmptyListItem(listItem), splitListItem(listItem)),
           Tab: sinkListItem(listItem),
           "Shift-Tab": liftListItem(listItem),
-        } : {}),
-        ...baseKeymap,
-      };
+        })] : []),
+        keymap(baseKeymap),
+      ];
     },
     getToolbarItems: ({ schema }) => [
       {
@@ -232,18 +280,20 @@ export function createDefaultFormattingExtension(): EditorExtension {
         group: "view",
         priority: 10,
         render: ({ isFullscreen, onToggleFullscreen }) => (
-          onToggleFullscreen ? (
-            <ToolbarButton
-              title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                onToggleFullscreen();
-              }}
-              className="loom-fullscreen-btn"
-            >
-              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </ToolbarButton>
-          ) : null
+          <>
+            {onToggleFullscreen && (
+              <ToolbarButton
+                title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onToggleFullscreen();
+                }}
+                className="rtb-fullscreen-btn"
+              >
+                {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </ToolbarButton>
+            )}
+          </>
         ),
       },
     ],
@@ -251,5 +301,5 @@ export function createDefaultFormattingExtension(): EditorExtension {
 }
 
 export function createDefaultEditorExtensions(): EditorExtension[] {
-  return [createDefaultFormattingExtension()];
+  return [createDefaultFormattingExtension(), createHtmlSourceExtension()];
 }

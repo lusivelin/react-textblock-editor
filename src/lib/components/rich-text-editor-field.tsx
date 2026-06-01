@@ -15,7 +15,6 @@ import { resolveEditorFeatureFlags } from "@lib/core/editor-features";
 import {
   createDefaultEditorExtensions,
   createImageExtension,
-  createLocalFirstExtension,
   createTablesExtension,
 } from "@lib/extensions";
 
@@ -23,26 +22,14 @@ export interface RichTextEditorHandle {
   getExtensionApi: <T = unknown>(extensionId: string) => T | undefined;
 }
 
-export interface LocalDraftConfig {
-  documentId: string;
-  storageKey?: string;
-}
-
-function resolveLocalDraft(
-  localDraft: RichTextEditorFieldProps["localDraft"]
-): LocalDraftConfig | null {
-  if (!localDraft) return null;
-  if (localDraft === true) return { documentId: "default" };
-  if (typeof localDraft === "string") return { documentId: localDraft };
-  return localDraft;
-}
-
 export interface RichTextEditorFieldProps {
   value?: string;
   onChange?: (html: string) => void;
   onSave?: (html: string) => void | Promise<void>;
+  onDiscard?: (html: string) => void | Promise<void>;
   onSaveStatusChange?: (status: SaveStatus) => void;
-  localDraft?: boolean | string | LocalDraftConfig;
+  persist?: boolean;
+  documentId?: string;
   onImageUpload?: (file: File) => Promise<string>;
   extensions?: EditorExtension[];
   placeholder?: string;
@@ -55,9 +42,7 @@ export interface RichTextEditorFieldProps {
   className?: string;
   classNames?: EditorClassNames;
   theme?: string;
-  /** @deprecated Use `onChange` */
   onLocalChange?: (html: string) => void;
-  /** @deprecated Use `onSaveStatusChange` */
   onSessionStateChange?: (state: DocumentSessionState) => void;
 }
 
@@ -66,8 +51,10 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
   onChange,
   onLocalChange,
   onSave,
+  onDiscard,
   onSaveStatusChange,
-  localDraft,
+  persist,
+  documentId,
   onImageUpload,
   extensions,
   placeholder = "Start writing…",
@@ -86,66 +73,58 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
   const [shouldMount, setShouldMount] = useState(!lazyMount);
   const lastEmittedSessionStateRef = useRef<DocumentSessionState | null>(null);
 
-  const draft = useMemo(() => resolveLocalDraft(localDraft), [localDraft]);
   const resolvedExtensions = useMemo<EditorExtension[]>(() => {
-    const extensionMap = new Map<string, EditorExtension>();
-    const providedExtensions =
+    const exts =
       extensions && extensions.length > 0
-        ? extensions
+        ? [...extensions]
         : [
             ...createDefaultEditorExtensions(),
             createImageExtension({ onUpload: onImageUpload }),
             createTablesExtension(),
           ];
 
-    for (const extension of providedExtensions) {
-      extensionMap.set(extension.id, extension);
+    if (onImageUpload && !exts.find((e) => e.id === "images")) {
+      exts.push(createImageExtension({ onUpload: onImageUpload }));
     }
 
-    if (draft && !extensionMap.has("local-first")) {
-      const localFirstExtension = createLocalFirstExtension({
-        documentId: draft.documentId,
-        storageKey: draft.storageKey,
-        enabled: true,
-      });
-      if (localFirstExtension) extensionMap.set(localFirstExtension.id, localFirstExtension);
-    }
+    resolveExtensionDependencies(exts);
+    return exts;
+  }, [extensions, onImageUpload]);
 
-    if (onImageUpload && !extensionMap.has("images")) {
-      extensionMap.set("images", createImageExtension({ onUpload: onImageUpload }));
-    }
-
-    const resolved = Array.from(extensionMap.values());
-    resolveExtensionDependencies(resolved);
-    return resolved;
-  }, [draft, extensions, onImageUpload]);
-  const extensionApis = useMemo(() => {
-    return new Map(resolvedExtensions.map((extension) => [extension.id, extension.getApi?.()] as const));
-  }, [resolvedExtensions]);
-  const extensionContext = useMemo(
-    () => ({
-      documentId: draft?.documentId ?? "default",
-      featureFlags: resolveEditorFeatureFlags(),
-    }),
-    [draft?.documentId]
+  const extensionApis = useMemo(
+    () => new Map(resolvedExtensions.map((e) => [e.id, e.getApi?.()] as const)),
+    [resolvedExtensions]
   );
+
+  const extensionContext = useMemo(
+    () => ({ documentId: documentId ?? "default", featureFlags: resolveEditorFeatureFlags() }),
+    [documentId]
+  );
+
   const featureFlags = useMemo(
     () => resolveEditorFeatureFlags(resolveExtensionFeatureFlags(resolvedExtensions, extensionContext)),
     [extensionContext, resolvedExtensions]
   );
-  const persistence = useMemo(
+
+  const extensionPersistence = useMemo(
     () => resolveExtensionSessionPersistence(resolvedExtensions, { ...extensionContext, featureFlags }),
     [extensionContext, featureFlags, resolvedExtensions]
   );
 
-  const { localContent, saveStatus, handleLocalChange, handleSave, sessionState } =
+  const persistence = useMemo(
+    () => extensionPersistence ?? (persist ? { enabled: true } : undefined),
+    [extensionPersistence, persist]
+  );
+
+  const { localContent, saveStatus, handleLocalChange, handleSave, handleDiscard, sessionState } =
     useDocumentSession({
       value,
       onChange,
       onLocalChange,
       onSave,
+      onDiscard,
       onSaveStatusChange,
-      documentId: draft?.documentId,
+      documentId,
       featureFlags,
       persistence,
     });
@@ -193,10 +172,10 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
       <button
         type="button"
         onClick={handleOpen}
-        className={cn("loom-pm-trigger", darkMode && "loom-pm-trigger--dark", className)}
+        className={cn("rtb-pm-trigger", darkMode && "rtb-pm-trigger--dark", className)}
       >
         {localContent && localContent !== "<p><br></p>"
-          ? <span className="loom-pm-trigger-filled">{filledLabel}</span>
+          ? <span className="rtb-pm-trigger-filled">{filledLabel}</span>
           : <span>{emptyLabel}</span>}
       </button>
     );
@@ -209,6 +188,7 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
       value={localContent || "<p><br></p>"}
       onChange={handleEditorChange}
       onSave={onSave ? handleSave : undefined}
+      onDiscard={onDiscard ? handleDiscard : undefined}
       placeholder={placeholder}
       className={className}
       classNames={classNames}

@@ -1,10 +1,19 @@
 {
-  "name": "@loom/editor",
+  "name": "react-textblock-editor",
   "version": "0.1.0",
-  "description": "ProseMirror rich text editor library for React with a separate demo site.",
+  "description": "ProseMirror rich text editor for React with formatting, tables, images, HTML source editing, and sanitized rendering.",
   "type": "module",
+  "packageManager": "pnpm@10.6.5",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "rich-text",
+    "editor",
+    "prosemirror",
+    "wysiwyg"
+  ],
   "sideEffects": [
-    "*.css"
+    "**/*.css"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -12,27 +21,28 @@
   "files": [
     "dist",
     "README.md",
-    "AGENTS.md"
+    "docs"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./themes/default.css": "./dist/themes/default.css",
+    "./themes/dark.css": "./dist/themes/dark.css",
+    "./themes/minimal.css": "./dist/themes/minimal.css",
+    "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@automerge/automerge": {
-      "optional": true
-    }
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20"
   },
   "dependencies": {
-    "@automerge/automerge": "^3.2.6",
     "dompurify": "^3.3.1",
     "lucide-react": "^0.563.0",
     "orderedmap": "^2.1.1",
@@ -47,22 +57,34 @@
     "prosemirror-view": "^1.41.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.7.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
     "vite": "^8.0.11",
-    "vite-plugin-wasm": "^3.6.0"
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^3.2.0"
   },
   "scripts": {
     "dev": "vite --config vite.demo.config.ts",
     "build": "pnpm run build:lib && pnpm run build:docs",
     "build:lib": "vite build --config vite.lib.config.ts && node ./scripts/build-css.mjs && tsc -p tsconfig.lib.build.json",
     "build:docs": "vite build --config vite.demo.config.ts",
+    "prepack": "npm run build:lib",
+    "pack:check": "npm pack --dry-run",
     "preview": "vite preview --config vite.demo.config.ts",
     "typecheck": "pnpm run typecheck:lib && pnpm run typecheck:demo",
     "typecheck:lib": "tsc -p tsconfig.lib.json --noEmit",
-    "typecheck:demo": "tsc -p tsconfig.demo.json --noEmit"
+    "typecheck:demo": "tsc -p tsconfig.demo.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   }
 }

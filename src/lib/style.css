@@ -1,14 +1,14 @@
 /* ── Rave Rich Text Editor — main stylesheet ─────────────────────────────────── */
 /*                                                                                */
 /* Import this once at your app entry point:                                      */
-/*   import 'rave-editor/dist/style.css'                                          */
+/*   import 'react-textblock-editor/style.css'                                    */
 /*                                                                                */
 /* To switch themes, import a theme file AFTER this one:                          */
-/*   import 'rave-editor/dist/themes/dark.css'                                    */
-/*   import 'rave-editor/dist/themes/minimal.css'                                 */
+/*   import 'react-textblock-editor/themes/dark.css'                              */
+/*   import 'react-textblock-editor/themes/minimal.css'                           */
 /*                                                                                */
-/* Or override any --loom-* variable directly on .loom-pm:                        */
-/*   .loom-pm { --loom-accent: #7c3aed; --loom-radius: 0; }                       */
+/* Or override any --rtb-* variable directly on .rtb-pm:                        */
+/*   .rtb-pm { --rtb-accent: #7c3aed; --rtb-radius: 0; }                       */
 
 @import "./styles/core.css";
 @import "./styles/themes/default.css";

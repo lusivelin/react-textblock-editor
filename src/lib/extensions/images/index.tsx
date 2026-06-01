@@ -101,7 +101,6 @@ function readInsertMode(): InsertMode {
     const value = window.sessionStorage.getItem(IMAGE_INSERT_MODE_STORAGE_KEY);
     if (value === "link" || value === "upload") return value;
   } catch {
-    // Ignore storage failures and fall back to the in-memory session value.
   }
   return memoryInsertMode;
 }
@@ -112,7 +111,6 @@ function writeInsertMode(mode: InsertMode) {
   try {
     window.sessionStorage.setItem(IMAGE_INSERT_MODE_STORAGE_KEY, mode);
   } catch {
-    // Ignore storage failures and keep the in-memory session value.
   }
 }
 
@@ -294,7 +292,7 @@ function ImageInsertPopover({
         <div
           ref={panelRef}
           onKeyDown={onPopoverKeyDown}
-          className="loom-image-popover"
+          className="rtb-image-popover"
           style={{
             position: "fixed",
             zIndex: 9999,

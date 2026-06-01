@@ -60,7 +60,6 @@ const PURIFY_CONFIG: Config = {
   RETURN_DOM: false,
   RETURN_DOM_FRAGMENT: false,
 
-  SAFE_FOR_TEMPLATES: true,
   WHOLE_DOCUMENT: false,
   FORCE_BODY: false,
 
@@ -69,8 +68,25 @@ const PURIFY_CONFIG: Config = {
   IN_PLACE: false,
 };
 
+const SOURCE_PURIFY_CONFIG: Config = {
+  ALLOWED_URI_REGEXP,
+  ALLOW_DATA_ATTR: true,
+  KEEP_CONTENT: true,
+  FORCE_BODY: false,
+  FORBID_TAGS: ["script", "style", "iframe", "frame", "frameset", "object", "embed", "form"],
+  FORBID_ATTR: ["onerror", "onload", "onclick", "ondblclick", "onmouseover", "onmouseout",
+    "onmousedown", "onmouseup", "onkeydown", "onkeyup", "onkeypress", "onfocus",
+    "onblur", "onchange", "onsubmit", "onreset", "onselect", "onabort"],
+};
+
 function canUseDOMPurify(): boolean {
   return typeof window !== "undefined" && typeof DOMPurify.sanitize === "function" && DOMPurify.isSupported !== false;
+}
+
+export function sanitizeHtmlSource(html: string): string {
+  if (!html) return "";
+  if (!canUseDOMPurify()) return html;
+  return DOMPurify.sanitize(html, SOURCE_PURIFY_CONFIG) as string;
 }
 
 export function sanitizeRichTextContent(html: unknown): string {

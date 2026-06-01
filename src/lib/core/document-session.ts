@@ -37,7 +37,7 @@ export function resolveDocumentId(documentId?: string): string {
 
 export function createDraftStorageKey(documentId?: string, storageKey?: string): string {
   if (storageKey?.trim()) return storageKey;
-  return `loom-editor:draft:${resolveDocumentId(documentId)}`;
+  return `rtb-editor:draft:${resolveDocumentId(documentId)}`;
 }
 
 export function parseStoredDocumentDraft(raw: string | null): StoredDocumentDraft | null {

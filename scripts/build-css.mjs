@@ -3,11 +3,25 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const distRoot = path.join(packageRoot, "dist");
+const themeDistRoot = path.join(distRoot, "themes");
 
-const rendererCss = await fs.readFile(
-  path.join(packageRoot, "src/lib/styles/rich-text-renderer.css"),
-  "utf8"
-);
+async function readSourceCss(relativePath) {
+  return fs.readFile(path.join(packageRoot, relativePath), "utf8");
+}
 
-await fs.mkdir(path.join(packageRoot, "dist"), { recursive: true });
-await fs.writeFile(path.join(packageRoot, "dist/style.css"), rendererCss, "utf8");
+const [coreCss, defaultThemeCss, rendererCss, darkThemeCss, minimalThemeCss] = await Promise.all([
+  readSourceCss("src/lib/styles/core.css"),
+  readSourceCss("src/lib/styles/themes/default.css"),
+  readSourceCss("src/lib/styles/rich-text-renderer.css"),
+  readSourceCss("src/lib/styles/themes/dark.css"),
+  readSourceCss("src/lib/styles/themes/minimal.css"),
+]);
+
+await fs.mkdir(themeDistRoot, { recursive: true });
+await Promise.all([
+  fs.writeFile(path.join(distRoot, "style.css"), [coreCss, defaultThemeCss, rendererCss].join("\n\n"), "utf8"),
+  fs.writeFile(path.join(themeDistRoot, "default.css"), defaultThemeCss, "utf8"),
+  fs.writeFile(path.join(themeDistRoot, "dark.css"), darkThemeCss, "utf8"),
+  fs.writeFile(path.join(themeDistRoot, "minimal.css"), minimalThemeCss, "utf8"),
+]);

@@ -1,25 +1,25 @@
 /* ── Minimal theme ───────────────────────────────────────────────────────────── */
 /* Flat, borderless feel. No shadows, reduced contrast, clean white surface.     */
-.loom-pm {
-  --loom-bg: #ffffff;
-  --loom-text: #0f172a;
-  --loom-border: #e8ecf0;
-  --loom-shadow: none;
-  --loom-radius: .25rem;
-  --loom-accent: #3b82f6;
-  --loom-toolbar-bg: #ffffff;
-  --loom-toolbar-border: #e8ecf0;
-  --loom-btn-color: #94a3b8;
-  --loom-btn-hover-bg: #f8fafc;
-  --loom-btn-hover-color: #0f172a;
-  --loom-btn-active-bg: #f1f5f9;
-  --loom-btn-active-color: #0f172a;
-  --loom-actionbar-bg: #ffffff;
-  --loom-actionbar-border: #e8ecf0;
-  --loom-sep-color: #f1f5f9;
-  --loom-popup-bg: #ffffff;
-  --loom-popup-border: #e8ecf0;
-  --loom-popup-shadow: 0 1px 8px rgba(0,0,0,.08);
-  --loom-danger-color: #ef4444;
-  --loom-danger-hover-bg: #fef2f2;
+.rtb-pm {
+  --rtb-bg: #ffffff;
+  --rtb-text: #0f172a;
+  --rtb-border: #e8ecf0;
+  --rtb-shadow: none;
+  --rtb-radius: .25rem;
+  --rtb-accent: #3b82f6;
+  --rtb-toolbar-bg: #ffffff;
+  --rtb-toolbar-border: #e8ecf0;
+  --rtb-btn-color: #94a3b8;
+  --rtb-btn-hover-bg: #f8fafc;
+  --rtb-btn-hover-color: #0f172a;
+  --rtb-btn-active-bg: #f1f5f9;
+  --rtb-btn-active-color: #0f172a;
+  --rtb-actionbar-bg: #ffffff;
+  --rtb-actionbar-border: #e8ecf0;
+  --rtb-sep-color: #f1f5f9;
+  --rtb-popup-bg: #ffffff;
+  --rtb-popup-border: #e8ecf0;
+  --rtb-popup-shadow: 0 1px 8px rgba(0,0,0,.08);
+  --rtb-danger-color: #ef4444;
+  --rtb-danger-hover-bg: #fef2f2;
 }

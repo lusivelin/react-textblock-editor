@@ -9,15 +9,19 @@ export function createEditorSchema(extensions: EditorExtension[]): Schema {
   let marks = OrderedMap.from<MarkSpec>(basicMarks);
 
   for (const extension of extensions) {
-    const schema = extension.getSchema?.();
-    if (!schema) continue;
+    try {
+      const schema = extension.getSchema?.();
+      if (!schema) continue;
 
-    for (const [name, spec] of Object.entries(schema.nodes ?? {})) {
-      nodes = nodes.update(name, spec);
-    }
+      for (const [name, spec] of Object.entries(schema.nodes ?? {})) {
+        nodes = nodes.update(name, spec);
+      }
 
-    for (const [name, spec] of Object.entries(schema.marks ?? {})) {
-      marks = marks.update(name, spec);
+      for (const [name, spec] of Object.entries(schema.marks ?? {})) {
+        marks = marks.update(name, spec);
+      }
+    } catch (err) {
+      console.warn(`[rtb] Extension "${extension.id}" getSchema failed:`, err);
     }
   }
 

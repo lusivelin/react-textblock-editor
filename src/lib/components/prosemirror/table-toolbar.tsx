@@ -117,10 +117,6 @@ export function TableFloatingToolbar({ view, state, darkMode }: TableFloatingToo
     };
   }, []);
 
-  // RAF debounce: multiple rapid transactions (e.g. a click spawns mousedown +
-  // focus + selection transactions) would otherwise flip the toolbar. We cancel
-  // any pending frame and re-schedule so the position is read from the fully-
-  // settled view.state after all synchronous updates have run.
   useEffect(() => {
     let rafId: number;
 
@@ -161,22 +157,19 @@ export function TableFloatingToolbar({ view, state, darkMode }: TableFloatingToo
       title={title}
       data-danger={danger || undefined}
       onMouseDown={(e) => { e.preventDefault(); run(view, cmd); }}
-      className="loom-table-popup-btn"
+      className="rtb-table-popup-btn"
     >
       {icon}
     </button>
   );
 
-  const sep = () => <span className="loom-table-popup-sep" />;
+  const sep = () => <span className="rtb-table-popup-sep" />;
 
-  // Portal to document.body keeps position:fixed out of overflow:hidden.
-  // The display:contents wrapper re-establishes CSS custom property inheritance
-  // so --loom-* tokens resolve correctly without affecting layout.
   return createPortal(
-    <div className={cn("loom-pm", darkMode && "loom-pm-dark")} style={{ display: "contents" }}>
+    <div className={cn("rtb-pm", darkMode && "rtb-pm-dark")} style={{ display: "contents" }}>
       <div
         style={{ position: "fixed", top: pos.top, left: pos.left }}
-        className="loom-table-popup"
+        className="rtb-table-popup"
         onMouseDown={(e) => e.preventDefault()}
       >
         {iconBtn(<TableIcon variant="add-row-above" />, addRowBefore, "Add row above")}

@@ -3,3 +3,6 @@ node_modules
 dist
 vite.config.d.ts
 *.tsbuildinfo
+*.tgz
+playwright-report
+test-results

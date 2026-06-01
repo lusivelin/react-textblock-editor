@@ -1,5 +1,5 @@
 export { RichTextEditorField } from "./components/rich-text-editor-field";
-export type { RichTextEditorFieldProps, LocalDraftConfig, RichTextEditorHandle } from "./components/rich-text-editor-field";
+export type { RichTextEditorFieldProps, RichTextEditorHandle } from "./components/rich-text-editor-field";
 
 export { RichTextRenderer } from "./components/rich-text-renderer";
 
@@ -13,12 +13,23 @@ export { defaultTheme, darkTheme, minimalTheme } from "./styles/themes";
 
 export type { SaveStatus } from "./core/document-session";
 export type { EditorClassNames } from "./core/document-model";
-export type { EditorExtension, EditorOverlayProps, EditorOverlayItem, EditorSchemaSpec } from "./core/editor-extension";
+export type { EditorFeatureFlags, ResolvedEditorFeatureFlags } from "./core/editor-features";
+export type {
+  EditorExtension,
+  EditorExtensionContext,
+  EditorExtensionInitialValueContext,
+  EditorExtensionRuntimeContext,
+  EditorOverlayProps,
+  EditorOverlayItem,
+  EditorSchemaSpec,
+  EditorToolbarItem,
+  EditorToolbarItemProps,
+} from "./core/editor-extension";
 export {
   createDefaultEditorExtensions,
   createDefaultFormattingExtension,
+  createHtmlSourceExtension,
   createImageExtension,
-  createLocalFirstExtension,
   createTablesExtension,
   composeExtensions,
 } from "./extensions";
@@ -27,7 +38,6 @@ export type {
   ImageExtensionOptions,
   ImageInsertOptions,
   ImageInsertResult,
-  LocalFirstExtensionOptions,
   TablesExtensionOptions,
   MaybeEditorExtension,
 } from "./extensions";

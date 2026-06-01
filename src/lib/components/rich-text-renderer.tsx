@@ -20,7 +20,7 @@ export function RichTextRenderer({ content, className }: RichTextRendererProps) 
 
   return (
     <div
-      className={cn("loom-renderer", className)}
+      className={cn("rtb-renderer", className)}
       dangerouslySetInnerHTML={{ __html: sanitizedContent }}
       suppressContentEditableWarning
       suppressHydrationWarning
