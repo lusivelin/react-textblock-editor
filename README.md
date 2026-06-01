@@ -1,26 +1,26 @@
-# react-textblock-editor
+# @linhtetpaing9/react-textblock-editor
 
 ProseMirror rich text editor for React. Outputs sanitized HTML and includes optional draft persistence, tables, image upload, and HTML source editing.
 
 ## Install
 
 ```bash
-pnpm add react-textblock-editor
+pnpm add @linhtetpaing9/react-textblock-editor
 # or
-npm install react-textblock-editor
+npm install @linhtetpaing9/react-textblock-editor
 ```
 
 Import the stylesheet once at your app entry:
 
 ```ts
-import "react-textblock-editor/style.css";
+import "@linhtetpaing9/react-textblock-editor/style.css";
 ```
 
 ## Quick start
 
 ```tsx
 import { useState } from "react";
-import { RichTextEditorField } from "react-textblock-editor";
+import { RichTextEditorField } from "@linhtetpaing9/react-textblock-editor";
 
 function Article() {
   const [html, setHtml] = useState("<p>Hello world</p>");
@@ -65,7 +65,7 @@ function Article() {
 ## Read-only display
 
 ```tsx
-import { RichTextRenderer } from "react-textblock-editor";
+import { RichTextRenderer } from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextRenderer content={html} />
 ```
@@ -132,7 +132,7 @@ import {
   composeExtensions,
   createDefaultEditorExtensions,
   createImageExtension,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextEditorField
   extensions={composeExtensions(
@@ -154,7 +154,7 @@ import {
   composeExtensions,
   createDefaultEditorExtensions,
   createTablesExtension,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextEditorField
   extensions={composeExtensions(
@@ -171,7 +171,7 @@ import {
   composeExtensions,
   createDefaultEditorExtensions,
   createHtmlSourceExtension,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextEditorField
   extensions={composeExtensions(
@@ -189,7 +189,7 @@ import {
   createDefaultEditorExtensions,
   createImageExtension,
   createTablesExtension,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 const extensions = composeExtensions(
   ...createDefaultEditorExtensions(),
@@ -327,7 +327,7 @@ Built-in themes (`themes/dark.css`, `themes/minimal.css`) work by redefining the
 ```
 
 ```ts
-import "react-textblock-editor/style.css";
+import "@linhtetpaing9/react-textblock-editor/style.css";
 import "./rtb-brand-theme.css"; // after — wins the cascade
 ```
 
@@ -336,7 +336,7 @@ import "./rtb-brand-theme.css"; // after — wins the cascade
 For runtime theming (e.g. user-selected theme), pass a CSS string directly:
 
 ```tsx
-import { darkTheme } from "react-textblock-editor";
+import { darkTheme } from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextEditorField theme={darkTheme} />
 
@@ -349,15 +349,15 @@ Built-in theme strings: `defaultTheme`, `darkTheme`, `minimalTheme`.
 ### Built-in theme imports
 
 ```ts
-import "react-textblock-editor/style.css";
-import "react-textblock-editor/themes/dark.css";    // dark mode
-import "react-textblock-editor/themes/minimal.css"; // borderless minimal
+import "@linhtetpaing9/react-textblock-editor/style.css";
+import "@linhtetpaing9/react-textblock-editor/themes/dark.css";    // dark mode
+import "@linhtetpaing9/react-textblock-editor/themes/minimal.css"; // borderless minimal
 ```
 
 ## Building a custom extension
 
 ```ts
-import type { EditorExtension } from "react-textblock-editor";
+import type { EditorExtension } from "@linhtetpaing9/react-textblock-editor";
 
 export function createMyExtension(): EditorExtension {
   return {

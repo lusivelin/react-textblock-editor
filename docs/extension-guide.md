@@ -7,7 +7,7 @@ react-textblock-editor is built around a capability extension system. Every opti
 An extension is a plain object that implements `EditorExtension`:
 
 ```ts
-import type { EditorExtension } from "react-textblock-editor";
+import type { EditorExtension } from "@linhtetpaing9/react-textblock-editor";
 
 const myExtension: EditorExtension = {
   id: "my-extension",        // must be unique across all extensions
@@ -54,7 +54,7 @@ Methods that run after schema assembly receive `EditorExtensionRuntimeContext`, 
 ## Minimal example — autosave extension
 
 ```ts
-import type { EditorExtension } from "react-textblock-editor";
+import type { EditorExtension } from "@linhtetpaing9/react-textblock-editor";
 
 export function createAutosaveExtension(save: (html: string) => Promise<void>): EditorExtension {
   return {
@@ -79,7 +79,7 @@ Usage:
 ## Adding toolbar items
 
 ```ts
-import type { EditorExtension, EditorToolbarItem } from "react-textblock-editor";
+import type { EditorExtension, EditorToolbarItem } from "@linhtetpaing9/react-textblock-editor";
 
 export function createWordCountExtension(): EditorExtension {
   return {
@@ -107,7 +107,7 @@ export function createWordCountExtension(): EditorExtension {
 ## Adding ProseMirror schema
 
 ```ts
-import type { EditorExtension, EditorSchemaSpec } from "react-textblock-editor";
+import type { EditorExtension, EditorSchemaSpec } from "@linhtetpaing9/react-textblock-editor";
 import type { NodeSpec } from "prosemirror-model";
 
 const calloutNode: NodeSpec = {
@@ -203,7 +203,7 @@ import {
   composeExtensions,
   createDefaultEditorExtensions,
   createImageExtension,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 const extensions = composeExtensions(
   ...createDefaultEditorExtensions(),

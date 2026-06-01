@@ -314,7 +314,7 @@ export function DemoApp() {
                 </div>
                 <CodeBlock lang="shell">{`pnpm add react-textblock-editor`}</CodeBlock>
                 <p className="docs-note">Import the stylesheet once at your app entry point.</p>
-                <CodeBlock lang="ts">{`import "react-textblock-editor/style.css";`}</CodeBlock>
+                <CodeBlock lang="ts">{`import "@linhtetpaing9/react-textblock-editor/style.css";`}</CodeBlock>
               </section>
 
               <section className="demo-panel" id="basic-usage">
@@ -328,7 +328,7 @@ export function DemoApp() {
   createTablesExtension,
   RichTextEditorField,
   RichTextRenderer,
-} from "react-textblock-editor";
+} from "@linhtetpaing9/react-textblock-editor";
 
 function ArticleEditor() {
   const [savedHtml, setSavedHtml] = useState("<p>Hello</p>");
@@ -387,7 +387,7 @@ const [localHtml, setLocalHtml] = useState(serverHtml);
                   <h3>Save status feedback</h3>
                   <p>Wire <code>onSaveStatusChange</code> to your own status indicator, or let the built-in toolbar badge handle it.</p>
                 </div>
-                <CodeBlock lang="tsx">{`import type { SaveStatus } from "react-textblock-editor";
+                <CodeBlock lang="tsx">{`import type { SaveStatus } from "@linhtetpaing9/react-textblock-editor";
 
 const [status, setStatus] = useState<SaveStatus>("idle");
 
@@ -457,8 +457,8 @@ import {
   RichTextEditorField,
   createDefaultEditorExtensions,
   createImageExtension,
-} from "react-textblock-editor";
-import "react-textblock-editor/style.css";
+} from "@linhtetpaing9/react-textblock-editor";
+import "@linhtetpaing9/react-textblock-editor/style.css";
 
 export function LoomInput({ value, onChange }: StringInputProps) {
   const extensions = useMemo(
@@ -504,8 +504,8 @@ export default defineConfig({
                   To render the saved HTML outside Sanity Studio, use <code>RichTextRenderer</code> with the field value retrieved via GROQ.
                 </p>
                 <CodeBlock lang="tsx">{`// article-page.tsx — Next.js / any React frontend
-import { RichTextRenderer } from "react-textblock-editor";
-import "react-textblock-editor/style.css";
+import { RichTextRenderer } from "@linhtetpaing9/react-textblock-editor";
+import "@linhtetpaing9/react-textblock-editor/style.css";
 
 // GROQ: *[_type == "article"][0]{ body }
 export function ArticlePage({ body }: { body: string }) {
@@ -590,7 +590,7 @@ editorRef.current?.getExtensionApi<ImageExtensionApi>("images")?.insertImageFrom
                     <h3>Themes</h3>
                     <p>Import a CSS file or use the <code>theme</code> prop for runtime switching.</p>
                   </div>
-                  <CodeBlock lang="ts">{`import { darkTheme, minimalTheme } from "react-textblock-editor";
+                  <CodeBlock lang="ts">{`import { darkTheme, minimalTheme } from "@linhtetpaing9/react-textblock-editor";
 
 <RichTextEditorField theme={darkTheme} ... />
 <RichTextEditorField theme={minimalTheme} ... />`}</CodeBlock>

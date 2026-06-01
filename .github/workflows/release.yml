@@ -50,11 +50,6 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Verify npm authentication
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm whoami
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
