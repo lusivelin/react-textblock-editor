@@ -381,12 +381,3 @@ pnpm build:lib    # build → dist/
 pnpm pack:check   # inspect npm package contents
 ```
 
-## Release
-
-Publishing is handled by the `Release package` GitHub Actions workflow.
-
-1. Add an `NPM_TOKEN` repository secret with publish access for this package.
-2. Run **Actions → Release package** from the `main` branch.
-3. Choose `patch`, `minor`, or `major`.
-
-The workflow runs typecheck, unit tests, e2e tests, bumps `package.json`, creates a git tag, builds the library, uploads the generated npm tarball, and publishes to npm.
