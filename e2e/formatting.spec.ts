@@ -166,4 +166,17 @@ test.describe("Block formatting", () => {
     const html = await getEditorHtml(page);
     expect(html).toContain("<blockquote>");
   });
+
+  test("inline code renders as <code> inside paragraph", async ({ page }) => {
+    // There is no code-block toolbar button; code_block is schema-only.
+    // Verify inline code mark produces <code> (already tested above — keep as regression).
+    const editor = getEditor(page);
+    await editor.click();
+    await page.keyboard.type("snippet");
+    await page.keyboard.press("Control+a");
+    await clickToolbarButton(page, "Inline Code");
+    const html = await getEditorHtml(page);
+    expect(html).toContain("<code>");
+    expect(html).not.toContain("<pre>");
+  });
 });

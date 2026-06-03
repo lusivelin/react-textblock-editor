@@ -14,6 +14,7 @@ import type { Command, EditorState } from "prosemirror-state";
 import type { MarkType, NodeType, Schema } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { cn } from "../../utils/cn";
+import { usePopover } from "../../hooks/use-popover";
 import type { EditorToolbarItem, EditorToolbarItemProps } from "../../core/editor-extension";
 
 class ToolbarItemErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -524,37 +525,14 @@ export function ColorDropdown({
   state: EditorState;
   markType: MarkType;
 }) {
-  const [open, setOpen] = useState(false);
-  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  const { isOpen, pos: dropPos, anchorRef: wrapRef, panelRef: dropRef, close, toggle } =
+    usePopover<HTMLDivElement, HTMLDivElement>({ panelWidth: 150, panelHeight: 175 });
   const [showModal, setShowModal] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
   const currentColor = getMarkColor(state, markType);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!wrapRef.current?.contains(target) && !dropRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const toggleDropdown = (event: React.MouseEvent) => {
-    event.preventDefault();
-    if (!open && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen((current) => !current);
-  };
 
   const pick = (color: string | null) => {
     runCommand(view, applyColor(markType, color));
-    setOpen(false);
+    close();
   };
 
   return (
@@ -562,7 +540,7 @@ export function ColorDropdown({
       <div ref={wrapRef} className="rtb-color-wrap">
         <ToolbarButton
           title={type === "text" ? "Text color" : "Highlight color"}
-          onMouseDown={toggleDropdown}
+          onMouseDown={(event) => { event.preventDefault(); toggle(); }}
           className="rtb-color-main-btn"
         >
           {type === "text" ? (
@@ -583,12 +561,12 @@ export function ColorDropdown({
             </span>
           )}
         </ToolbarButton>
-        <ToolbarButton title="Color options" onMouseDown={toggleDropdown} className="rtb-list-chevron">
+        <ToolbarButton title="Color options" onMouseDown={(event) => { event.preventDefault(); toggle(); }} className="rtb-list-chevron">
           <ChevronDown size={9} />
         </ToolbarButton>
       </div>
 
-      {open && dropPos && (
+      {isOpen && dropPos && (
         <div
           ref={dropRef}
           className="rtb-color-dropdown"
@@ -631,7 +609,7 @@ export function ColorDropdown({
               type="button"
               title="Custom color"
               className="rtb-color-palette-btn"
-              onMouseDown={(event) => { event.preventDefault(); setShowModal(true); setOpen(false); }}
+              onMouseDown={(event) => { event.preventDefault(); setShowModal(true); close(); }}
             >
               <Palette size={14} />
             </button>
@@ -672,10 +650,8 @@ export function ListStyleDropdown({
   state: EditorState;
   schema: Schema;
 }) {
-  const [open, setOpen] = useState(false);
-  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
+  const { isOpen, pos: dropPos, anchorRef: wrapRef, panelRef: dropRef, close, toggle } =
+    usePopover<HTMLDivElement, HTMLDivElement>({ panelWidth: 185, panelHeight: 130 });
   const listType = type === "bullet" ? schema.nodes.bullet_list : schema.nodes.ordered_list;
   const otherType = type === "bullet" ? schema.nodes.ordered_list : schema.nodes.bullet_list;
   const listItemType = schema.nodes.list_item;
@@ -686,27 +662,6 @@ export function ListStyleDropdown({
   const isActive = isListActive(state, listType);
   const currentStyle = getListStyleType(state, listType, fallbackStyle);
   const styles = type === "bullet" ? BULLET_STYLES : ORDERED_STYLES;
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!wrapRef.current?.contains(target) && !dropRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const openPicker = (event: React.MouseEvent) => {
-    event.preventDefault();
-    if (!open && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen((current) => !current);
-  };
 
   return (
     <>
@@ -721,12 +676,12 @@ export function ListStyleDropdown({
         >
           {type === "bullet" ? <List size={14} /> : <ListOrdered size={14} />}
         </ToolbarButton>
-        <ToolbarButton title="List style" onMouseDown={openPicker} className="rtb-list-chevron">
+        <ToolbarButton title="List style" onMouseDown={(event) => { event.preventDefault(); toggle(); }} className="rtb-list-chevron">
           <ChevronDown size={9} />
         </ToolbarButton>
       </div>
 
-      {open && dropPos && (
+      {isOpen && dropPos && (
         <div
           ref={dropRef}
           className={`rtb-list-picker${type === "ordered" ? " rtb-list-picker--ordered" : ""}`}
@@ -741,7 +696,7 @@ export function ListStyleDropdown({
               onMouseDown={(event) => {
                 event.preventDefault();
                 runCommand(view, setListStyle(listType, otherType, style));
-                setOpen(false);
+                close();
               }}
               className="rtb-list-picker-option"
             >
@@ -755,39 +710,17 @@ export function ListStyleDropdown({
 }
 
 export function TableInsertPicker({ view, schema }: { view: EditorView; schema: Schema }) {
-  const [open, setOpen] = useState(false);
+  const { isOpen, pos: dropPos, anchorRef: buttonRef, panelRef: dropRef, close, toggle } =
+    usePopover<HTMLButtonElement, HTMLDivElement>({
+      panelWidth: 190,
+      panelHeight: 200,
+      onClose: () => setHovered(null),
+    });
   const [hovered, setHovered] = useState<{ r: number; c: number } | null>(null);
-  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !dropRef.current?.contains(target)) {
-        setOpen(false);
-        setHovered(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const openPicker = (event: React.MouseEvent) => {
-    event.preventDefault();
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen((current) => !current);
-    setHovered(null);
-  };
 
   const insertTable = (rows: number, cols: number) => {
     runCommand(view, createInsertTableCommand(schema, rows, cols));
-    setOpen(false);
-    setHovered(null);
+    close();
   };
 
   const label = hovered ? `${hovered.c + 1} × ${hovered.r + 1}` : "Insert table";
@@ -798,13 +731,13 @@ export function TableInsertPicker({ view, schema }: { view: EditorView; schema: 
         ref={buttonRef}
         type="button"
         title="Insert table"
-        onMouseDown={openPicker}
+        onMouseDown={(event) => { event.preventDefault(); toggle(); }}
         className="rtb-toolbar-btn"
       >
         <Table2 size={14} />
       </button>
 
-      {open && dropPos && (
+      {isOpen && dropPos && (
         <div
           ref={dropRef}
           className="rtb-tbl-picker"

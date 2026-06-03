@@ -1,4 +1,5 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Component, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@lib/utils/cn";
 import type { DocumentSessionState, SaveStatus } from "@lib/core/document-session";
 import { useDocumentSession } from "@lib/hooks/use-document-session";
@@ -17,6 +18,17 @@ import {
   createImageExtension,
   createTablesExtension,
 } from "@lib/extensions";
+
+class EditorErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return <div className="rtb-error-fallback">Editor failed to load.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 export interface RichTextEditorHandle {
   getExtensionApi: <T = unknown>(extensionId: string) => T | undefined;
@@ -147,6 +159,7 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
     }
 
     return (
+      <EditorErrorBoundary>
       <StructuredEditor
         value={localContent || "<p><br></p>"}
         onChange={handleEditorChange}
@@ -163,6 +176,7 @@ export const RichTextEditorField = forwardRef<RichTextEditorHandle, RichTextEdit
         extensions={resolvedExtensions}
         theme={theme}
       />
+      </EditorErrorBoundary>
     );
   }
 );

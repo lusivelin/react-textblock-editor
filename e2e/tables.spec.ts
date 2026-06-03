@@ -79,3 +79,69 @@ test.describe("Tables", () => {
     expect(html).toContain("Row 1 Col 1");
   });
 });
+
+test.describe("Table toolbar actions", () => {
+  test.beforeEach(async ({ page }) => {
+    await openPlayground(page);
+    await clearEditor(page);
+  });
+
+  test("Add row below inserts a new <tr>", async ({ page }) => {
+    await insertTable(page, 2, 2);
+    const editor = getEditor(page);
+    await editor.locator("th, td").first().click();
+    await page.locator('button[title="Add row below"]').dispatchEvent("mousedown");
+    const html = await getEditorHtml(page);
+    const trMatches = html.match(/<tr/g);
+    expect(trMatches?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("Add row above inserts a new <tr> before current", async ({ page }) => {
+    await insertTable(page, 2, 2);
+    const editor = getEditor(page);
+    await editor.locator("td").first().click();
+    await page.locator('button[title="Add row above"]').dispatchEvent("mousedown");
+    const html = await getEditorHtml(page);
+    const trMatches = html.match(/<tr/g);
+    expect(trMatches?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("Delete row removes a <tr>", async ({ page }) => {
+    await insertTable(page, 3, 2);
+    const editor = getEditor(page);
+    await editor.locator("td").first().click();
+    const trsBefore = (await getEditorHtml(page)).match(/<tr/g)?.length ?? 0;
+    await page.locator('button[title="Delete row"]').dispatchEvent("mousedown");
+    const trsAfter = (await getEditorHtml(page)).match(/<tr/g)?.length ?? 0;
+    expect(trsAfter).toBeLessThan(trsBefore);
+  });
+
+  test("Add column right inserts a new column", async ({ page }) => {
+    await insertTable(page, 2, 2);
+    const editor = getEditor(page);
+    await editor.locator("th, td").first().click();
+    const colsBefore = (await getEditorHtml(page)).match(/<th|<td/g)?.length ?? 0;
+    await page.locator('button[title="Add column right"]').dispatchEvent("mousedown");
+    const colsAfter = (await getEditorHtml(page)).match(/<th|<td/g)?.length ?? 0;
+    expect(colsAfter).toBeGreaterThan(colsBefore);
+  });
+
+  test("Delete column removes a column", async ({ page }) => {
+    await insertTable(page, 2, 3);
+    const editor = getEditor(page);
+    await editor.locator("th, td").first().click();
+    const colsBefore = (await getEditorHtml(page)).match(/<th|<td/g)?.length ?? 0;
+    await page.locator('button[title="Delete column"]').dispatchEvent("mousedown");
+    const colsAfter = (await getEditorHtml(page)).match(/<th|<td/g)?.length ?? 0;
+    expect(colsAfter).toBeLessThan(colsBefore);
+  });
+
+  test("Delete table removes the entire table", async ({ page }) => {
+    await insertTable(page, 2, 2);
+    const editor = getEditor(page);
+    await editor.locator("th, td").first().click();
+    await page.locator('button[title="Delete table"]').dispatchEvent("mousedown");
+    const html = await getEditorHtml(page);
+    expect(html).not.toContain("<table");
+  });
+});

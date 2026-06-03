@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
-import { ChevronDown, ImagePlus, Link2, Upload } from "lucide-react";
+import { ImagePlus, Link2 } from "lucide-react";
 import type { NodeSpec, Schema } from "prosemirror-model";
 import type { EditorExtension } from "@lib/core/editor-extension";
 import type { EditorView } from "prosemirror-view";
 import { TextSelection } from "prosemirror-state";
 import { ImageNodeView } from "@lib/components/prosemirror/image-view";
 import { createImageId, createInsertImageCommand, runCommand, ToolbarButton, ToolbarSeparator } from "@lib/components/prosemirror/toolbar";
-
-type InsertMode = "upload" | "link";
-const IMAGE_INSERT_MODE_STORAGE_KEY = "rave:image-insert-mode";
-
-let memoryInsertMode: InsertMode = "upload";
+import { usePopover } from "@lib/hooks/use-popover";
 
 const imageNodeSpec: NodeSpec = {
   inline: true,
@@ -41,11 +37,8 @@ const imageNodeSpec: NodeSpec = {
   }],
   toDOM(node) {
     const { src, alt, title, width, height } = node.attrs as {
-      src: string;
-      alt: string;
-      title: string | null;
-      width: string | null;
-      height: string | null;
+      src: string; alt: string; title: string | null;
+      width: string | null; height: string | null;
     };
     const attrs: Record<string, string> = { src };
     if (alt) attrs.alt = alt;
@@ -59,10 +52,6 @@ const imageNodeSpec: NodeSpec = {
   },
 };
 
-export interface ImageExtensionOptions {
-  onUpload?: (file: File) => Promise<string>;
-}
-
 export interface ImageInsertOptions {
   alt?: string;
   title?: string;
@@ -72,19 +61,45 @@ export interface ImageInsertResult {
   imageId: string;
 }
 
+export interface ImageExtensionOptions {
+  /** Called with the selected File; must resolve to a public URL. */
+  onUpload?: (file: File) => Promise<string>;
+  /** Maximum allowed file size in bytes. Defaults to 20 MB. */
+  maxFileSizeBytes?: number;
+  /**
+   * Integrate an external media picker (Cloudinary, S3 browser, Uploadcare, etc.).
+   * The extension calls this with an `insert` callback; your code opens the picker
+   * and calls `insert(url, attrs?)` once the user selects an asset.
+   *
+   * @example
+   * onExternalPicker: (insert) => {
+   *   cloudinaryWidget.open();
+   *   cloudinaryWidget.on("success", (r) =>
+   *     insert(r.secure_url, { alt: r.original_filename })
+   *   );
+   * }
+   */
+  onExternalPicker?: (insert: (url: string, attrs?: ImageInsertOptions) => void) => void;
+  /** Icon shown in the external picker toolbar button. Defaults to a link icon. */
+  externalPickerIcon?: React.ReactNode;
+  /** Tooltip for the external picker button. Defaults to "Open media picker". */
+  externalPickerLabel?: string;
+}
+
 export interface ImageExtensionApi {
+  /** Opens the native file browser to upload an image. */
   openPicker: () => void;
   insertImageFromUrl: (url: string, attrs?: ImageInsertOptions) => ImageInsertResult | null;
   insertImageFromFile: (file: File, attrs?: ImageInsertOptions) => Promise<ImageInsertResult | null>;
-  getMode: () => InsertMode;
 }
 
 interface ImageRuntimeBridge {
   openPicker?: () => void;
   insertImageFromUrl?: (url: string, attrs?: ImageInsertOptions) => ImageInsertResult | null;
   insertImageFromFile?: (file: File, attrs?: ImageInsertOptions) => Promise<ImageInsertResult | null>;
-  getMode?: () => InsertMode;
 }
+
+const DEFAULT_MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 function isValidHttpImageUrl(value: string): boolean {
   try {
@@ -95,115 +110,56 @@ function isValidHttpImageUrl(value: string): boolean {
   }
 }
 
-function readInsertMode(): InsertMode {
-  if (typeof window === "undefined") return memoryInsertMode;
-  try {
-    const value = window.sessionStorage.getItem(IMAGE_INSERT_MODE_STORAGE_KEY);
-    if (value === "link" || value === "upload") return value;
-  } catch {
-  }
-  return memoryInsertMode;
-}
-
-function writeInsertMode(mode: InsertMode) {
-  memoryInsertMode = mode;
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(IMAGE_INSERT_MODE_STORAGE_KEY, mode);
-  } catch {
-  }
-}
-
-function ImageInsertPopover({
+function ImageToolbarButtons({
   onUpload,
+  maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE,
+  onExternalPicker,
+  externalPickerIcon,
+  externalPickerLabel = "Open media picker",
   runtime,
   view,
   schema,
 }: {
   onUpload?: (file: File) => Promise<string>;
+  maxFileSizeBytes?: number;
+  onExternalPicker?: ImageExtensionOptions["onExternalPicker"];
+  externalPickerIcon?: React.ReactNode;
+  externalPickerLabel?: string;
   runtime: ImageRuntimeBridge;
   view: EditorView;
   schema: Schema;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [mode, setMode] = useState<InsertMode>(() => readInsertMode());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── URL popover state ──────────────────────────────────────────────────────
   const [url, setUrl] = useState("");
   const [alt, setAlt] = useState("");
   const [title, setTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
-  const chooseButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    writeInsertMode(mode);
-  }, [mode]);
-
-  useEffect(() => {
-    runtime.openPicker = openPopover;
-    runtime.getMode = () => mode;
-    runtime.insertImageFromUrl = insertImageFromUrl;
-    runtime.insertImageFromFile = insertImageFromFile;
-    return () => {
-      runtime.openPicker = undefined;
-      runtime.getMode = undefined;
-      runtime.insertImageFromUrl = undefined;
-      runtime.insertImageFromFile = undefined;
-    };
+  const {
+    isOpen: urlOpen, pos: urlPos,
+    anchorRef: linkBtnRef, panelRef: linkPanelRef,
+    close: closeUrl, toggle: toggleUrl,
+  } = usePopover<HTMLButtonElement, HTMLDivElement>({
+    panelWidth: 300,
+    panelHeight: 250,
+    onClose: () => setUrlError(null),
   });
 
   useEffect(() => {
-    if (!open) return;
-    const target = mode === "link" ? urlInputRef.current : chooseButtonRef.current;
-    target?.focus();
-  }, [mode, open]);
+    if (urlOpen) urlInputRef.current?.focus();
+  }, [urlOpen]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onMouseDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        setOpen(false);
-        setError(null);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
-        setError(null);
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  const close = () => {
-    setOpen(false);
-    setError(null);
-  };
-
+  // ── Shared insert helpers ──────────────────────────────────────────────────
   const insertImage = (src: string, attrs: ImageInsertOptions = {}): ImageInsertResult => {
     const imageId = createImageId();
-    runCommand(
-      view,
-      createInsertImageCommand(schema, src, {
-        alt: attrs.alt ?? alt.trim(),
-        title: attrs.title ?? (title.trim() || undefined),
-        imageId,
-      })
-    );
-    setUrl("");
-    setAlt("");
-    setTitle("");
-    close();
+    runCommand(view, createInsertImageCommand(schema, src, {
+      alt: attrs.alt ?? "",
+      title: attrs.title ?? undefined,
+      imageId,
+    }));
     return { imageId };
   };
 
@@ -214,91 +170,82 @@ function ImageInsertPopover({
   };
 
   const insertImageFromFile = async (file: File, attrs: ImageInsertOptions = {}) => {
+    if (file.size > maxFileSizeBytes) return null;
     const src = onUpload ? await onUpload(file) : URL.createObjectURL(file);
     return insertImage(src, attrs);
   };
 
-  const submitLink = () => {
-    const trimmed = url.trim();
-    if (!trimmed) {
-      setError("Enter an image URL.");
-      return;
-    }
-    if (!isValidHttpImageUrl(trimmed)) {
-      setError("Use a valid http or https URL.");
-      return;
-    }
-    insertImageFromUrl(trimmed);
-  };
+  // ── Runtime bridge ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    runtime.openPicker = () => fileInputRef.current?.click();
+    runtime.insertImageFromUrl = insertImageFromUrl;
+    runtime.insertImageFromFile = insertImageFromFile;
+    return () => {
+      runtime.openPicker = undefined;
+      runtime.insertImageFromUrl = undefined;
+      runtime.insertImageFromFile = undefined;
+    };
+  });
 
+  // ── File input handler ─────────────────────────────────────────────────────
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
-
-    try {
-      await insertImageFromFile(file);
-    } catch {
-      setError("Image upload failed.");
-    }
+    if (!file || file.size > maxFileSizeBytes) return;
+    try { await insertImageFromFile(file); } catch {}
   };
 
-  const openPopover = () => {
-    if (open) return;
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen(true);
+  // ── URL popover submit ─────────────────────────────────────────────────────
+  const submitUrl = () => {
+    const trimmed = url.trim();
+    if (!trimmed) { setUrlError("Enter an image URL."); return; }
+    if (!isValidHttpImageUrl(trimmed)) { setUrlError("Use a valid http or https URL."); return; }
+    insertImageFromUrl(trimmed, { alt: alt.trim() || undefined, title: title.trim() || undefined });
+    setUrl(""); setAlt(""); setTitle("");
+    closeUrl();
   };
 
-  const togglePopover = () => {
-    if (open) {
-      close();
-      return;
-    }
-    openPopover();
+  const onUrlKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter") { event.preventDefault(); submitUrl(); }
   };
 
-  const onPopoverKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-      return;
-    }
-    if (event.key === "Enter" && mode === "link") {
-      event.preventDefault();
-      submitLink();
-    }
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Direct file upload — no dropdown */}
       <ToolbarButton
-        ref={buttonRef}
-        title="Insert image"
-        onMouseDown={(event) => {
-          event.preventDefault();
-          togglePopover();
-        }}
+        title="Upload image"
+        onMouseDown={(event) => { event.preventDefault(); fileInputRef.current?.click(); }}
       >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <ImagePlus size={14} />
-          <ChevronDown size={10} />
-        </span>
+        <ImagePlus size={14} />
       </ToolbarButton>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleFileSelect}
+      />
 
-      {open && (
+      {/* URL insertion popover */}
+      <ToolbarButton
+        ref={linkBtnRef}
+        title="Insert image from URL"
+        onMouseDown={(event) => { event.preventDefault(); toggleUrl(); }}
+      >
+        <Link2 size={14} />
+      </ToolbarButton>
+      {urlOpen && urlPos && (
         <div
-          ref={panelRef}
-          onKeyDown={onPopoverKeyDown}
-          className="rtb-image-popover"
+          ref={linkPanelRef}
+          onKeyDown={onUrlKeyDown}
+          className="rtb-image-url-popover"
           style={{
             position: "fixed",
             zIndex: 9999,
-            top: pos?.top ?? 0,
-            left: pos?.left ?? 0,
-            minWidth: 320,
+            top: urlPos.top,
+            left: urlPos.left,
+            width: 300,
             padding: 12,
             borderRadius: 12,
             background: "rgba(255,255,255,0.98)",
@@ -308,180 +255,78 @@ function ImageInsertPopover({
             gap: 10,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>Insert image</div>
-            <div style={{ display: "inline-flex", gap: 4, padding: 4, borderRadius: 999, background: "rgba(241,245,249,0.95)" }}>
-              {(["upload", "link"] as InsertMode[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setMode(item);
-                    setError(null);
-                  }}
-                  data-active={mode === item || undefined}
-                  style={{
-                    border: 0,
-                    borderRadius: 999,
-                    padding: "6px 10px",
-                    cursor: "pointer",
-                    background: mode === item ? "#fff" : "transparent",
-                    boxShadow: mode === item ? "0 1px 3px rgba(15,23,42,0.12)" : "none",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {item === "upload" ? <Upload size={12} /> : <Link2 size={12} />}
-                    {item === "upload" ? "Upload" : "Link"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Insert image from URL</div>
 
-          <label style={{ display: "grid", gap: 6 }}>
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Image URL</span>
+            <input
+              ref={urlInputRef}
+              type="url"
+              value={url}
+              onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+              placeholder="https://example.com/image.jpg"
+              style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)", padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 5 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Alt text</span>
             <input
               type="text"
               value={alt}
-              onChange={(event) => setAlt(event.target.value)}
+              onChange={(e) => setAlt(e.target.value)}
               placeholder="Describe the image"
-              style={{
-                width: "100%",
-                borderRadius: 10,
-                border: "1px solid rgba(148,163,184,0.4)",
-                padding: "8px 10px",
-              }}
+              style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)", padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }}
             />
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Title</span>
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Title <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span></span>
             <input
               type="text"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Optional title"
-              style={{
-                width: "100%",
-                borderRadius: 10,
-                border: "1px solid rgba(148,163,184,0.4)",
-                padding: "8px 10px",
-              }}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Tooltip text"
+              style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)", padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }}
             />
           </label>
 
-          {mode === "upload" ? (
-            <>
-              <div style={{ fontSize: 12, color: "#475569" }}>
-                Pick a local file. The image is inserted immediately after upload completes.
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  ref={chooseButtonRef}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    fileInputRef.current?.click();
-                  }}
-                  style={{
-                    border: "1px solid rgba(148,163,184,0.35)",
-                    background: "#fff",
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Choose file
-                </button>
-                <span style={{ alignSelf: "center", fontSize: 12, color: "#64748b" }}>
-                  {onUpload ? "Uploads to your endpoint" : "Uses a local object URL"}
-                </span>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleFileSelect}
-              />
-            </>
-          ) : (
-            <>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Image URL</span>
-                <input
-                  ref={urlInputRef}
-                  type="url"
-                  value={url}
-                  onChange={(event) => {
-                    setUrl(event.target.value);
-                    setError(null);
-                  }}
-                  placeholder="https://example.com/image.jpg"
-                  style={{
-                    width: "100%",
-                    borderRadius: 10,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    padding: "8px 10px",
-                  }}
-                />
-              </label>
-            </>
-          )}
-
-          {error && (
-            <div style={{ fontSize: 12, color: "#b91c1c", background: "#fef2f2", borderRadius: 10, padding: "8px 10px" }}>
-              {error}
+          {urlError && (
+            <div style={{ fontSize: 12, color: "#b91c1c", background: "#fef2f2", borderRadius: 8, padding: "7px 10px" }}>
+              {urlError}
             </div>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button
               type="button"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                close();
-              }}
-              style={{
-                border: "1px solid rgba(148,163,184,0.35)",
-                background: "#fff",
-                borderRadius: 10,
-                padding: "8px 12px",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              onMouseDown={(e) => { e.preventDefault(); closeUrl(); }}
+              style={{ border: "1px solid rgba(148,163,184,0.35)", background: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
             >
               Cancel
             </button>
-            {mode === "link" ? (
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  submitLink();
-                }}
-                style={{
-                  border: 0,
-                  background: "#2563eb",
-                  color: "#fff",
-                  borderRadius: 10,
-                  padding: "8px 12px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                Insert
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); submitUrl(); }}
+              style={{ border: 0, background: "#2563eb", color: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              Insert
+            </button>
           </div>
         </div>
+      )}
+
+      {/* External media picker (optional) */}
+      {onExternalPicker && (
+        <ToolbarButton
+          title={externalPickerLabel}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onExternalPicker((pickedUrl, attrs) => { insertImageFromUrl(pickedUrl, attrs); });
+          }}
+        >
+          {externalPickerIcon ?? <span style={{ fontSize: 11, fontWeight: 700 }}>…</span>}
+        </ToolbarButton>
       )}
     </>
   );
@@ -500,10 +345,12 @@ async function insertFileIntoView(
   file: File,
   view: EditorView,
   onUpload?: (file: File) => Promise<string>,
-  attrs: ImageInsertOptions = {}
+  attrs: ImageInsertOptions = {},
+  maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE
 ): Promise<void> {
   const { schema } = view.state;
   if (!schema.nodes.image) return;
+  if (file.size > maxFileSizeBytes) return;
 
   const tempSrc = URL.createObjectURL(file);
   const imageId = createImageId();
@@ -518,7 +365,6 @@ async function insertFileIntoView(
 
   try {
     const realSrc = await onUpload(file);
-    // Swap placeholder src for the real URL
     view.state.doc.descendants((node, pos) => {
       if (node.type === schema.nodes.image && (node.attrs as Record<string, unknown>).imageId === imageId) {
         view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: realSrc }));
@@ -526,7 +372,6 @@ async function insertFileIntoView(
       }
     });
   } catch {
-    // Remove the placeholder on failure
     view.state.doc.descendants((node, pos) => {
       if (node.type === schema.nodes.image && (node.attrs as Record<string, unknown>).imageId === imageId) {
         view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
@@ -544,17 +389,12 @@ export function createImageExtension(options: ImageExtensionOptions = {}): Edito
     openPicker: () => runtime.openPicker?.(),
     insertImageFromUrl: (url, attrs) => runtime.insertImageFromUrl?.(url, attrs) ?? null,
     insertImageFromFile: (file, attrs) => runtime.insertImageFromFile?.(file, attrs) ?? Promise.resolve(null),
-    getMode: () => runtime.getMode?.() ?? readInsertMode(),
   };
 
   return {
     id: "images",
     getApi: () => api,
-    getSchema: () => ({
-      nodes: {
-        image: imageNodeSpec,
-      },
-    }),
+    getSchema: () => ({ nodes: { image: imageNodeSpec } }),
     getNodeViews: () => ({
       image: (node, view, getPos) => new ImageNodeView(node, view, getPos as () => number | undefined),
     }),
@@ -566,7 +406,7 @@ export function createImageExtension(options: ImageExtensionOptions = {}): Edito
         const file = imageItem.getAsFile();
         if (!file) return false;
         event.preventDefault();
-        void insertFileIntoView(file, view, options.onUpload);
+        void insertFileIntoView(file, view, options.onUpload, {}, options.maxFileSizeBytes);
         return true;
       },
       handleDrop(view, event) {
@@ -575,14 +415,13 @@ export function createImageExtension(options: ImageExtensionOptions = {}): Edito
           : [];
         if (!files.length) return false;
         event.preventDefault();
-        // Move cursor to the drop position so images land where the user dropped
         const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
         if (dropPos) {
           const $pos = view.state.doc.resolve(dropPos.pos);
           view.dispatch(view.state.tr.setSelection(TextSelection.near($pos)));
         }
         for (const file of files) {
-          void insertFileIntoView(file, view, options.onUpload);
+          void insertFileIntoView(file, view, options.onUpload, {}, options.maxFileSizeBytes);
         }
         return true;
       },
@@ -594,7 +433,16 @@ export function createImageExtension(options: ImageExtensionOptions = {}): Edito
         priority: 10,
         render: ({ view, schema }) => (
           <>
-            <ImageInsertPopover onUpload={options.onUpload} runtime={runtime} view={view} schema={schema} />
+            <ImageToolbarButtons
+              onUpload={options.onUpload}
+              maxFileSizeBytes={options.maxFileSizeBytes}
+              onExternalPicker={options.onExternalPicker}
+              externalPickerIcon={options.externalPickerIcon}
+              externalPickerLabel={options.externalPickerLabel}
+              runtime={runtime}
+              view={view}
+              schema={schema}
+            />
             <ToolbarSeparator />
           </>
         ),

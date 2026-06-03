@@ -57,10 +57,9 @@ const EDITOR_PROP_ROWS: [string, string, string][] = [
 ];
 
 const IMAGE_API_ROWS: [string, string, string][] = [
-  ["openPicker()", "void", "Opens the combined Upload / Link popover."],
+  ["openPicker()", "void", "Opens the native file browser to upload an image directly."],
   ["insertImageFromUrl(url, attrs?)", "ImageInsertResult | null", "Inserts a validated http/https image URL immediately."],
   ["insertImageFromFile(file, attrs?)", "Promise<ImageInsertResult | null>", "Uploads a file through the host callback, then inserts it."],
-  ["getMode()", "\"upload\" | \"link\"", "Returns the current remembered insert mode."],
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -549,11 +548,23 @@ const mockUploadImage = async (file: File) => {
   return await readFileAsDataUrl(file);
 };
 
+// Open the native file browser programmatically
 editorRef.current?.getExtensionApi<ImageExtensionApi>("images")?.openPicker();
+
+// Insert from a URL directly
 editorRef.current?.getExtensionApi<ImageExtensionApi>("images")?.insertImageFromUrl(
   "https://example.com/image.jpg",
-  { alt: "Example image", title: "Example" }
-);`}</CodeBlock>
+  { alt: "Example image" }
+);
+
+// External picker integration (Cloudinary, S3, etc.)
+createImageExtension({
+  onUpload: api.uploadImage,
+  onExternalPicker: (insert) => {
+    openMediaLibrary((asset) => insert(asset.url, { alt: asset.name }));
+  },
+  externalPickerLabel: "Media library",
+});`}</CodeBlock>
                   <p className="docs-note">
                     The playground uses a mock upload promise that converts the chosen file to a data URL after a short delay, so the upload flow is visible without a backend.
                   </p>

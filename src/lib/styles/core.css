@@ -336,6 +336,39 @@
 .rtb-lp { list-style-position: inside; padding: 0; margin: 0; font-size: 8px; line-height: 1.6; text-align: left; }
 .rtb-lp-item::after { content: ''; display: inline-block; width: 20px; height: 2px; background: currentColor; opacity: 0.35; margin-left: 2px; vertical-align: middle; }
 
+/* ── Editor error boundary fallback ─────────────────────────────────────────── */
+.rtb-error-fallback {
+  padding: 1rem;
+  border: 1px dashed var(--rtb-danger-color, #ef4444);
+  border-radius: var(--rtb-radius, .375rem);
+  color: var(--rtb-danger-color, #ef4444);
+  font-size: .875rem;
+}
+
+/* ── Image insert popover ────────────────────────────────────────────────────── */
+.rtb-image-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .375rem;
+  padding: 1.25rem 1rem;
+  border: 1.5px dashed rgba(148,163,184,.5);
+  border-radius: .625rem;
+  cursor: pointer;
+  text-align: center;
+  color: var(--rtb-btn-color, #64748b);
+  background: transparent;
+  transition: border-color .15s, background .15s, color .15s;
+  user-select: none;
+}
+.rtb-image-dropzone:hover,
+.rtb-image-dropzone--over {
+  border-color: var(--rtb-accent, #3b82f6);
+  background: rgba(59,130,246,.05);
+  color: var(--rtb-accent, #3b82f6);
+}
+
 /* ── ProseMirror content ─────────────────────────────────────────────────────── */
 .rtb-pm .ProseMirror { outline: none; padding: 1rem; min-height: inherit; font-size: .9375rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .rtb-pm .ProseMirror > * + * { margin-top: .5em; }

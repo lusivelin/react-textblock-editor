@@ -33,6 +33,18 @@ function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+function lsGet(key: string): string | null {
+  try { return window.localStorage.getItem(key); } catch { return null; }
+}
+
+function lsSet(key: string, value: string): void {
+  try { window.localStorage.setItem(key, value); } catch {}
+}
+
+function lsRemove(key: string): void {
+  try { window.localStorage.removeItem(key); } catch {}
+}
+
 export function useDocumentSession({
   value,
   onChange,
@@ -60,10 +72,19 @@ export function useDocumentSession({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const hydratedDraftKeyRef = useRef<string | null>(null);
   const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSaveStatusChangeRef = useRef(onSaveStatusChange);
   onSaveStatusChangeRef.current = onSaveStatusChange;
   const onDiscardRef = useRef(onDiscard);
   onDiscardRef.current = onDiscard;
+
+  // Clear timers on unmount to avoid setState on dead component.
+  useEffect(() => {
+    return () => {
+      if (savedResetTimerRef.current) clearTimeout(savedResetTimerRef.current);
+      if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    };
+  }, []);
 
   const prevStatusRef = useRef<SaveStatus>("idle");
   useEffect(() => {
@@ -76,10 +97,10 @@ export function useDocumentSession({
     if (!persistenceKey || hydratedDraftKeyRef.current === persistenceKey || !canUseLocalStorage()) return;
     hydratedDraftKeyRef.current = persistenceKey;
 
-    const storedDraft = parseStoredDocumentDraft(window.localStorage.getItem(persistenceKey));
+    const storedDraft = parseStoredDocumentDraft(lsGet(persistenceKey));
     if (!storedDraft) { setHasPersistedDraft(false); return; }
     if (storedDraft.content === currentValue) {
-      window.localStorage.removeItem(persistenceKey);
+      lsRemove(persistenceKey);
       setHasPersistedDraft(false);
       return;
     }
@@ -99,21 +120,27 @@ export function useDocumentSession({
   useEffect(() => {
     if (!persistenceKey || !canUseLocalStorage()) { setHasPersistedDraft(false); return; }
     if (!persistenceEnabled || !hasUnsavedChanges) {
-      window.localStorage.removeItem(persistenceKey);
+      if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+      lsRemove(persistenceKey);
       setHasPersistedDraft(false);
       return;
     }
-    window.localStorage.setItem(persistenceKey, JSON.stringify({
-      content: localContent,
-      savedContent: lastSavedContent,
-      updatedAt: Date.now(),
-    }));
+    // Debounce writes — avoid hitting localStorage on every keystroke.
+    if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    persistDebounceRef.current = setTimeout(() => {
+      lsSet(persistenceKey, JSON.stringify({
+        content: localContent,
+        savedContent: lastSavedContent,
+        updatedAt: Date.now(),
+      }));
+    }, 400);
     setHasPersistedDraft(true);
   }, [hasUnsavedChanges, lastSavedContent, localContent, persistenceEnabled, persistenceKey]);
 
   const clearPersistedDraft = useCallback(() => {
     if (!persistenceKey || !canUseLocalStorage()) return;
-    window.localStorage.removeItem(persistenceKey);
+    if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    lsRemove(persistenceKey);
     setHasPersistedDraft(false);
   }, [persistenceKey]);
 

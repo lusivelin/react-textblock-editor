@@ -13,6 +13,8 @@ export class ImageNodeView implements NodeView {
   private selected = false;
   private startX = 0;
   private startWidth = 0;
+  private onMouseEnter: () => void;
+  private onMouseLeave: () => void;
 
   constructor(
     node: ProseMirrorNode,
@@ -58,12 +60,10 @@ export class ImageNodeView implements NodeView {
       '<path d="M1 9L9 1M4 9L9 4M7 9L9 7" stroke="white" stroke-width="1.4" stroke-linecap="round"/>' +
       "</svg>";
 
-    wrapper.addEventListener("mouseenter", () => {
-      this.setChromeVisibility(true);
-    });
-    wrapper.addEventListener("mouseleave", () => {
-      if (!this.resizing && !this.selected) this.setChromeVisibility(false);
-    });
+    this.onMouseEnter = () => this.setChromeVisibility(true);
+    this.onMouseLeave = () => { if (!this.resizing && !this.selected) this.setChromeVisibility(false); };
+    wrapper.addEventListener("mouseenter", this.onMouseEnter);
+    wrapper.addEventListener("mouseleave", this.onMouseLeave);
 
     handle.addEventListener("mousedown", this.onHandleMouseDown);
 
@@ -175,6 +175,8 @@ export class ImageNodeView implements NodeView {
   }
 
   destroy() {
+    this.dom.removeEventListener("mouseenter", this.onMouseEnter);
+    this.dom.removeEventListener("mouseleave", this.onMouseLeave);
     this.handle.removeEventListener("mousedown", this.onHandleMouseDown);
   }
 }

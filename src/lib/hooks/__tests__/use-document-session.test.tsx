@@ -134,6 +134,7 @@ describe("useDocumentSession — sessionState", () => {
 
 describe("useDocumentSession — localStorage persistence", () => {
   it("persists draft when persistence is enabled and changes exist", () => {
+    vi.useFakeTimers();
     const key = "draft:persist-test";
     const { result } = renderHook(() =>
       useDocumentSession({
@@ -143,7 +144,9 @@ describe("useDocumentSession — localStorage persistence", () => {
       })
     );
     act(() => { result.current.handleLocalChange("<p>dirty</p>"); });
+    act(() => { vi.advanceTimersByTime(500); });
     expect(localStorage.getItem(key)).not.toBeNull();
+    vi.useRealTimers();
   });
 
   it("does not persist when persistence is disabled", () => {
