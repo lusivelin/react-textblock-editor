@@ -1,4 +1,5 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type React from "react";
 import { useIsomorphicLayoutEffect } from "../../hooks/use-isomorphic-layout-effect";
 import { EditorState } from "prosemirror-state";
@@ -88,6 +89,33 @@ export function StructuredEditor({
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((f) => !f), []);
   const toggleSourceMode = useCallback(() => setIsSourceMode((f) => !f), []);
+
+  // Stable portal host. The editor is always rendered into this node; we only
+  // relocate the node itself (inline placeholder ↔ document.body) when toggling
+  // fullscreen. Because the portal container's identity never changes, ProseMirror
+  // is never unmounted/recreated — cursor, scroll, and unsaved edits are preserved.
+  // Portaling to body lets `position: fixed` fullscreen escape any ancestor
+  // transform/stacking context (e.g. Sanity Studio panes) that would otherwise
+  // trap it and cause z-index overlap.
+  const portalHostRef = useRef<HTMLDivElement | null>(null);
+  if (typeof document !== "undefined" && !portalHostRef.current) {
+    const host = document.createElement("div");
+    host.className = "rtb-pm-portal-host";
+    host.style.display = "contents";
+    portalHostRef.current = host;
+  }
+  const placeholderRef = useRef<HTMLDivElement>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const host = portalHostRef.current;
+    if (!host) return;
+    const target = isFullscreen ? document.body : placeholderRef.current;
+    if (target && host.parentNode !== target) target.appendChild(host);
+  }, [isFullscreen]);
+
+  useIsomorphicLayoutEffect(() => {
+    return () => portalHostRef.current?.remove();
+  }, []);
 
   const resolvedExtensions = useMemo<EditorExtension[]>(
     () => (extensions && extensions.length > 0 ? extensions : createDefaultEditorExtensions()),
@@ -255,7 +283,7 @@ export function StructuredEditor({
 
   const currentState = viewRef.current?.state ?? null;
 
-  return (
+  const editorTree = (
     <div className={cn("rtb-pm", darkMode && "rtb-pm-dark", isFullscreen && "rtb-pm--fullscreen", className, classNames?.root)}>
       {viewRef.current && currentState && (
         <ProseMirrorToolbar
@@ -314,5 +342,12 @@ export function StructuredEditor({
         </OverlayErrorBoundary>
       ))}
     </div>
+  );
+
+  return (
+    <>
+      <div ref={placeholderRef} style={{ display: "contents" }} />
+      {portalHostRef.current && createPortal(editorTree, portalHostRef.current)}
+    </>
   );
 }
