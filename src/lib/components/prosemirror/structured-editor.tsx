@@ -2,7 +2,7 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import type React from "react";
 import { useIsomorphicLayoutEffect } from "../../hooks/use-isomorphic-layout-effect";
-import { EditorState } from "prosemirror-state";
+import { EditorState, Selection } from "prosemirror-state";
 import { type DirectEditorProps, EditorView } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import { createEditorSchema } from "./schema";
@@ -89,6 +89,18 @@ export function StructuredEditor({
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((f) => !f), []);
   const toggleSourceMode = useCallback(() => setIsSourceMode((f) => !f), []);
+
+  // In fullscreen the editing surface fills the viewport, but the area below the
+  // text belongs to the scroll container rather than the contenteditable, so a
+  // click there does nothing. Treat a click on the empty surface as "focus the
+  // editor and place the caret at the end" so the whole screen is editable.
+  const handleSurfaceMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const view = viewRef.current;
+    if (!view || e.target !== e.currentTarget) return;
+    e.preventDefault();
+    view.dispatch(view.state.tr.setSelection(Selection.atEnd(view.state.doc)).scrollIntoView());
+    view.focus();
+  }, []);
 
   // Stable portal host. The editor is always rendered into this node; we only
   // relocate the node itself (inline placeholder ↔ document.body) when toggling
@@ -303,6 +315,7 @@ export function StructuredEditor({
         ref={mountRef}
         className={cn(classNames?.content, isFullscreen && "rtb-pm-content--fullscreen")}
         style={isFullscreen ? undefined : { minHeight: `${height}px` }}
+        onMouseDown={isFullscreen ? handleSurfaceMouseDown : undefined}
       />
 
       <div className={`rtb-status-bar${saveStatus && saveStatus !== "idle" ? ` rtb-status-bar--${saveStatus}` : ""}`}>

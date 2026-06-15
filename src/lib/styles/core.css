@@ -85,9 +85,11 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  cursor: text;
 }
 .rtb-pm-content--fullscreen .ProseMirror {
   min-height: 100%;
+  cursor: text;
 }
 
 /* ── Action bar ──────────────────────────────────────────────────────────────── */
@@ -377,7 +379,11 @@
 .rtb-pm .ProseMirror h2 { font-size: 1.375em; font-weight: 700; margin: 0; }
 .rtb-pm .ProseMirror h3 { font-size: 1.125em; font-weight: 600; margin: 0; }
 .rtb-pm .ProseMirror h4, .rtb-pm .ProseMirror h5, .rtb-pm .ProseMirror h6 { font-weight: 600; margin: 0; }
-.rtb-pm .ProseMirror ul, .rtb-pm .ProseMirror ol { padding-left: 1.5em; margin: 0; }
+.rtb-pm .ProseMirror ul, .rtb-pm .ProseMirror ol { padding-left: 1.5em; margin: 0; list-style-position: outside; }
+/* Set marker types explicitly so a consumer's CSS reset (e.g. Tailwind preflight's
+   `ol, ul { list-style: none }`) can't strip the editor's bullets/numbers. */
+.rtb-pm .ProseMirror ul { list-style-type: disc; }
+.rtb-pm .ProseMirror ol { list-style-type: decimal; }
 .rtb-pm .ProseMirror ul[data-list-style="circle"] { list-style-type: circle; }
 .rtb-pm .ProseMirror ul[data-list-style="square"] { list-style-type: square; }
 .rtb-pm .ProseMirror ol[data-list-style="lower-alpha"] { list-style-type: lower-alpha; }
@@ -401,6 +407,7 @@
 .rtb-pm .ProseMirror .selectedCell { position: relative; }
 .rtb-pm .ProseMirror .selectedCell::after { content: ""; position: absolute; inset: 0; background: var(--rtb-accent); opacity: 0.12; pointer-events: none; }
 .rtb-pm-dark .ProseMirror { color: #e2e8f0; }
+.rtb-pm-dark .ProseMirror li::marker { color: #e2e8f0; }
 .rtb-pm-dark .ProseMirror blockquote { border-color: #334155; color: #94a3b8; }
 .rtb-pm-dark .ProseMirror pre, .rtb-pm-dark .ProseMirror code { background: #1e293b; color: #e2e8f0; }
 .rtb-pm-dark .ProseMirror a { color: #60a5fa; }
