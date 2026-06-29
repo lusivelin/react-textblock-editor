@@ -1,6 +1,6 @@
 {
   "name": "@linhtetpaing9/react-textblock-editor",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "ProseMirror rich text editor for React with formatting, tables, images, HTML source editing, and sanitized rendering.",
   "type": "module",
   "packageManager": "pnpm@10.6.5",
