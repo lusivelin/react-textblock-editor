@@ -21,6 +21,8 @@ const [coreCss, defaultThemeCss, rendererCss, darkThemeCss, minimalThemeCss] = a
 await fs.mkdir(themeDistRoot, { recursive: true });
 await Promise.all([
   fs.writeFile(path.join(distRoot, "style.css"), [coreCss, defaultThemeCss, rendererCss].join("\n\n"), "utf8"),
+  // Renderer-only styles for SSR consumers that import the "./renderer" entry.
+  fs.writeFile(path.join(distRoot, "renderer.css"), rendererCss, "utf8"),
   fs.writeFile(path.join(themeDistRoot, "default.css"), defaultThemeCss, "utf8"),
   fs.writeFile(path.join(themeDistRoot, "dark.css"), darkThemeCss, "utf8"),
   fs.writeFile(path.join(themeDistRoot, "minimal.css"), minimalThemeCss, "utf8"),

@@ -1,6 +1,6 @@
 {
   "name": "@linhtetpaing9/react-textblock-editor",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "ProseMirror rich text editor for React with formatting, tables, images, HTML source editing, and sanitized rendering.",
   "type": "module",
   "packageManager": "pnpm@10.6.5",
@@ -32,6 +32,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./renderer": {
+      "types": "./dist/types/renderer.d.ts",
+      "import": "./dist/renderer.js",
+      "require": "./dist/renderer.cjs"
+    },
+    "./renderer.css": "./dist/renderer.css",
     "./style.css": "./dist/style.css",
     "./themes/default.css": "./dist/themes/default.css",
     "./themes/dark.css": "./dist/themes/dark.css",
@@ -44,6 +50,7 @@
   },
   "dependencies": {
     "dompurify": "^3.3.1",
+    "html-react-parser": "^5.2.6",
     "lucide-react": "^0.563.0",
     "orderedmap": "^2.1.1",
     "prosemirror-commands": "^1.7.1",

@@ -338,6 +338,32 @@
 .rtb-lp { list-style-position: inside; padding: 0; margin: 0; font-size: 8px; line-height: 1.6; text-align: left; }
 .rtb-lp-item::after { content: ''; display: inline-block; width: 20px; height: 2px; background: currentColor; opacity: 0.35; margin-left: 2px; vertical-align: middle; }
 
+/* ── Alignment dropdown ──────────────────────────────────────────────────────── */
+.rtb-align-wrap { display: inline-flex; align-items: center; }
+.rtb-align-dropdown {
+  background-color: var(--rtb-popup-bg);
+  border: 1px solid var(--rtb-popup-border);
+  border-radius: .5rem;
+  box-shadow: var(--rtb-popup-shadow);
+  padding: .25rem;
+  display: flex;
+  gap: .125rem;
+}
+.rtb-align-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: .375rem;
+  padding: .375rem;
+  cursor: pointer;
+  background: transparent;
+  color: var(--rtb-btn-color);
+  transition: background .1s, border-color .1s;
+}
+.rtb-align-option:hover { background-color: var(--rtb-btn-hover-bg); color: var(--rtb-btn-hover-color); }
+.rtb-align-option[data-active=true] { background-color: var(--rtb-btn-active-bg); border-color: var(--rtb-accent); }
+
 /* ── Editor error boundary fallback ─────────────────────────────────────────── */
 .rtb-error-fallback {
   padding: 1rem;

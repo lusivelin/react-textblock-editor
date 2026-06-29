@@ -11,6 +11,7 @@ import type { MarkSpec, NodeSpec, NodeType } from "prosemirror-model";
 import type { EditorExtension, EditorToolbarItemProps } from "@lib/core/editor-extension";
 import { createHtmlSourceExtension } from "../html-source";
 import {
+  AlignDropdown,
   ColorDropdown,
   isBlockActive,
   isMarkActive,
@@ -21,6 +22,47 @@ import {
 } from "@lib/components/prosemirror/toolbar";
 
 const listNodes = addListNodes(OrderedMap.from(basicNodes), "block+", "block");
+
+const ALIGN_VALUES = ["left", "center", "right", "justify"];
+
+// Reads alignment from an inline `text-align` style or a `data-align` attribute,
+// falling back to null (= left, the default that emits no style).
+function readAlign(dom: Node | string): string | null {
+  const element = dom as HTMLElement;
+  const value = element.style?.textAlign || element.getAttribute?.("data-align") || "";
+  return ALIGN_VALUES.includes(value) && value !== "left" ? value : null;
+}
+
+// Emits `text-align` inline (so it round-trips through the HTML renderer, which
+// allow-lists `style`/`data-*`) plus `data-align` for lossless re-parsing.
+function alignDOMAttrs(align: unknown): Record<string, string> {
+  return typeof align === "string" && align && align !== "left"
+    ? { style: `text-align:${align}`, "data-align": align }
+    : {};
+}
+
+const HEADING_LEVELS = [1, 2, 3, 4, 5, 6];
+
+const paragraphSpec: NodeSpec = {
+  ...(basicNodes.paragraph as NodeSpec),
+  attrs: { ...(basicNodes.paragraph.attrs ?? {}), align: { default: null } },
+  parseDOM: [{ tag: "p", getAttrs: (dom) => ({ align: readAlign(dom) }) }],
+  toDOM(node) {
+    return ["p", alignDOMAttrs(node.attrs.align), 0];
+  },
+};
+
+const headingSpec: NodeSpec = {
+  ...(basicNodes.heading as NodeSpec),
+  attrs: { level: { default: 1 }, align: { default: null } },
+  parseDOM: HEADING_LEVELS.map((level) => ({
+    tag: `h${level}`,
+    getAttrs: (dom: Node | string) => ({ level, align: readAlign(dom) }),
+  })),
+  toDOM(node) {
+    return [`h${node.attrs.level}`, alignDOMAttrs(node.attrs.align), 0];
+  },
+};
 
 function exitEmptyListItem(listItemType: NodeType): Command {
   return (state, dispatch) => {
@@ -142,6 +184,8 @@ export function createDefaultFormattingExtension(): EditorExtension {
     id: "default-formatting",
     getSchema: () => ({
       nodes: {
+        paragraph: paragraphSpec,
+        heading: headingSpec,
         bullet_list: bulletListSpec,
         ordered_list: orderedListSpec,
         list_item: listNodes.get("list_item") as NodeSpec,
@@ -256,6 +300,8 @@ export function createDefaultFormattingExtension(): EditorExtension {
         render: (props) => (
           <>
             {renderHeadingButtons(props)}
+            <ToolbarSeparator />
+            <AlignDropdown view={props.view} state={props.state} />
             <ToolbarSeparator />
             <ListStyleDropdown type="bullet" view={props.view} state={props.state} schema={props.schema} />
             <ListStyleDropdown type="ordered" view={props.view} state={props.state} schema={props.schema} />

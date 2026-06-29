@@ -1,6 +1,10 @@
 import { Component, forwardRef, useEffect, useRef, useState } from "react";
 import type React from "react";
 import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
   ChevronDown,
   Highlighter,
   List,
@@ -701,6 +705,98 @@ export function ListStyleDropdown({
               className="rtb-list-picker-option"
             >
               <ListPreview listStyle={style} ordered={type === "ordered"} />
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+export type AlignValue = "left" | "center" | "right" | "justify";
+
+const ALIGN_OPTIONS: { value: AlignValue; title: string; Icon: typeof AlignLeft }[] = [
+  { value: "left", title: "Align left", Icon: AlignLeft },
+  { value: "center", title: "Align center", Icon: AlignCenter },
+  { value: "right", title: "Align right", Icon: AlignRight },
+  { value: "justify", title: "Justify", Icon: AlignJustify },
+];
+
+function blockSupportsAlign(node: { type: { spec: { attrs?: Record<string, unknown> }; isTextblock: boolean } }): boolean {
+  return node.type.isTextblock && !!node.type.spec.attrs && "align" in node.type.spec.attrs;
+}
+
+// Sets `align` on every text block touched by the selection. "left" is the
+// default, so it is stored as null (no inline style emitted).
+export function setBlockAlign(align: AlignValue): Command {
+  return (state, dispatch) => {
+    const { from, to } = state.selection;
+    const next = align === "left" ? null : align;
+    let tr = state.tr;
+    let changed = false;
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (!blockSupportsAlign(node)) return;
+      if (node.attrs.align === next) return;
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, align: next });
+      changed = true;
+    });
+    if (changed && dispatch) dispatch(tr.scrollIntoView());
+    return changed;
+  };
+}
+
+export function getBlockAlign(state: EditorState): AlignValue {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth >= 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (blockSupportsAlign(node)) {
+      return (node.attrs.align as AlignValue) || "left";
+    }
+  }
+  return "left";
+}
+
+export function AlignDropdown({ view, state }: { view: EditorView; state: EditorState }) {
+  const { isOpen, pos: dropPos, anchorRef: wrapRef, panelRef: dropRef, close, toggle } =
+    usePopover<HTMLDivElement, HTMLDivElement>({ panelWidth: 168, panelHeight: 44 });
+  const current = getBlockAlign(state);
+  const ActiveIcon = ALIGN_OPTIONS.find((option) => option.value === current)?.Icon ?? AlignLeft;
+
+  return (
+    <>
+      <div ref={wrapRef} className="rtb-align-wrap">
+        <ToolbarButton
+          title="Text alignment"
+          active={current !== "left"}
+          onMouseDown={(event) => { event.preventDefault(); toggle(); }}
+        >
+          <ActiveIcon size={14} />
+        </ToolbarButton>
+        <ToolbarButton title="Alignment options" onMouseDown={(event) => { event.preventDefault(); toggle(); }} className="rtb-list-chevron">
+          <ChevronDown size={9} />
+        </ToolbarButton>
+      </div>
+
+      {isOpen && dropPos && (
+        <div
+          ref={dropRef}
+          className="rtb-align-dropdown"
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, zIndex: 9999 }}
+        >
+          {ALIGN_OPTIONS.map(({ value, title, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              title={title}
+              data-active={current === value || undefined}
+              className="rtb-align-option"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                runCommand(view, setBlockAlign(value));
+                close();
+              }}
+            >
+              <Icon size={14} />
             </button>
           ))}
         </div>

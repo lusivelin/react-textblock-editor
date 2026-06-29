@@ -10,7 +10,11 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, "package.json"), 
   peerDependencies?: Record<string, string>;
 };
 
-const libraryEntry = "./src/lib/index.ts";
+const libraryEntry = {
+  index: "./src/lib/index.ts",
+  // SSR-safe, ProseMirror-free entry — see src/lib/renderer.ts
+  renderer: "./src/lib/renderer.ts",
+};
 const libraryOutDir = "dist";
 const libraryExternalPackages = [
   ...Object.keys(packageJson.dependencies ?? {}),
@@ -35,9 +39,8 @@ export default defineConfig({
     emptyOutDir: true,
     lib: {
       entry: libraryEntry,
-      name: "ReactTextblockEditor",
       formats: ["es", "cjs"],
-      fileName: (format) => (format === "es" ? "index.js" : "index.cjs")
+      fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`
     },
     rollupOptions: {
       external: isLibraryExternal

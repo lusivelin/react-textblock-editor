@@ -1,6 +1,6 @@
 import DOMPurify, { type Config } from "dompurify";
 
-const ALLOWED_TAGS = [
+export const ALLOWED_TAGS = [
   "p",
   "br",
   "strong",
@@ -32,7 +32,7 @@ const ALLOWED_TAGS = [
   "code",
 ];
 
-const ALLOWED_ATTR = [
+export const ALLOWED_ATTR = [
   "style",
   "class",
   "src",
@@ -47,7 +47,8 @@ const ALLOWED_ATTR = [
   "data-*",
 ];
 
-const ALLOWED_URI_REGEXP = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+export const ALLOWED_URI_REGEXP =
+  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
 
 const PURIFY_CONFIG: Config = {
   ALLOWED_TAGS,
@@ -105,7 +106,7 @@ export function sanitizeRichTextContent(html: unknown): string {
   return cleanupEditorArtifacts(sanitized);
 }
 
-function cleanupEditorArtifacts(html: string): string {
+export function cleanupEditorArtifacts(html: string): string {
   return html
     .replace(/\s*contenteditable\s*=\s*["']?[^"'\s>]*["']?/gi, "")
     .replace(/\s*data-spelling-error\s*=\s*["']?[^"'\s>]*["']?/gi, "")
