@@ -146,19 +146,23 @@ function renderHeadingButtons({ view, state, schema }: EditorToolbarItemProps) {
   const paragraph = schema.nodes.paragraph;
   if (!heading || !paragraph) return null;
 
-  const renderHeadingButton = (level: number) => (
-    <ToolbarButton
-      key={`heading-${level}`}
-      title={`Heading ${level}`}
-      active={isBlockActive(state, heading, { level })}
-      onMouseDown={(event) => {
-        event.preventDefault();
-        runCommand(view, setBlockType(heading, { level }));
-      }}
-    >
-      <span style={{ fontSize: 11, fontWeight: 700 }}>{`H${level}`}</span>
-    </ToolbarButton>
-  );
+  const renderHeadingButton = (level: number) => {
+    const isActive = isBlockActive(state, heading, { level });
+    return (
+      <ToolbarButton
+        key={`heading-${level}`}
+        title={`Heading ${level}`}
+        active={isActive}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          // Clicking the active heading toggles back to a paragraph.
+          runCommand(view, isActive ? setBlockType(paragraph) : setBlockType(heading, { level }));
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700 }}>{`H${level}`}</span>
+      </ToolbarButton>
+    );
+  };
 
   return (
     <>

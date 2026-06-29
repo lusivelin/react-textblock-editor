@@ -127,7 +127,11 @@ export function isMarkActive(state: EditorState, markType: MarkType): boolean {
 
 export function isBlockActive(state: EditorState, nodeType: NodeType, attrs?: Record<string, unknown>): boolean {
   const { $from, to } = state.selection;
-  return to <= $from.end() && $from.parent.hasMarkup(nodeType, attrs);
+  if (to > $from.end() || $from.parent.type !== nodeType) return false;
+  // Partial-match only the attrs the caller cares about. Using hasMarkup here
+  // would deep-compare every attr (e.g. `align`), so a heading with an align
+  // value set would fail a `{ level }`-only check.
+  return !attrs || Object.keys(attrs).every((key) => $from.parent.attrs[key] === attrs[key]);
 }
 
 function isListActive(state: EditorState, listType: NodeType): boolean {
